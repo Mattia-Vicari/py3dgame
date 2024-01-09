@@ -22,6 +22,6 @@ setup(
     python_requires = ">= 3.7",
     install_requires = ["numpy", "pygame"],
     project_urls = {
-        "Bug Reports": "",
+        "Bug Reports": "https://github.com/Mattia-Vicari/py3dgame/issues",
     }
 )

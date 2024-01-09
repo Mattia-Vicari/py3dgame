@@ -1,3 +1,4 @@
-from . import body
-from . import renderer
-from . import scene
+from body import Body
+from renderer import *
+from scene import *
+from vec import Vec

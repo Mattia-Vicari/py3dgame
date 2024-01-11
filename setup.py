@@ -18,7 +18,7 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     keywords = "",
-    package_dir = {"": "py3dgame"},
+    package_dir = {"py3dgame": "py3dgame"},
     python_requires = ">= 3.7",
     install_requires = ["numpy", "pygame"],
     project_urls = {

@@ -1,24 +1,29 @@
 """
-Module that implements the Color class.
+Module that stores values of predefiened colors.
 """
 
-from dataclasses import dataclass
+from typing import TypeAlias
 
-@dataclass
-class Color:
-    """
-    Class containing RGB triplets as `tuple` with value between 0 and 255.
-    """
+Color: TypeAlias = tuple[int, int, int]
 
-    white = (255, 255, 255)
-    black = (0, 0, 0)
-    red = (255, 0, 0)
-    green = (0, 255, 0)
-    blue = (0, 0, 255)
-    yellow = (255, 255, 0)
-    purple = (255, 0, 255)
-    cyan = (0, 255, 255)
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
+YELLOW = (255, 255, 0)
+PURPLE = (255, 0, 255)
+CYAN = (0, 255, 255)
 
 
 def invert_color(color: Color) -> tuple:
+    """
+    Invert a color using the formula
+    ``new_color = (255, 255, 255) - old_color``.
+
+    :param color: color to invert
+    :type color: Color
+    :return: inverted color
+    :rtype: tuple
+    """
     return (255 - color[0], 255 - color[1], 255 - color[2])

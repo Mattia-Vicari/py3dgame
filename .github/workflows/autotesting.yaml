@@ -25,5 +25,4 @@ jobs:
 
       - name: Check PEP8 style
         run:
-          pylint py3dgame
-          pylint tests
+          pylint py3dgame tests

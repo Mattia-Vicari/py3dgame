@@ -1,65 +1,145 @@
-from .math3d import Vec3
-from .color import Color, invert_color
-from .scene import Scene, Body
+"""
+Module for handling the rendering pipeline.
+"""
+
 import pygame
+from .math3d import Vec3
+from .color import WHITE
+from .scene import Scene, Body
+
 
 class Camera:
-    def __init__(self, pos: Vec3 = Vec3(0, 0, 0), dir: Vec3 = Vec3(1, 0, 0)) -> None:
+    """
+    Class to handle the camera postion for the rendering.
+
+    :param pos: initial position of the camera, defaults to Vec3(0, 0, 0)
+    :type pos: Vec3, optional
+    :param direction: initial direction of the camera, defaults to Vec3(1, 0, 0)
+    :type direction: Vec3, optional
+    """
+
+    def __init__(self, pos: Vec3 = Vec3(0, 0, 0), direction: Vec3 = Vec3(1, 0, 0)) -> None:
+
         self.pos = pos
-        self.dir = dir
+        self.dir = direction
         self.zoom = 1000
         self.xs: Vec3 = self.dir @ Vec3(0, 0, 1)
         self.ys: Vec3 = self.dir @ self.xs
 
-
-def world_to_screen(point: Vec3, camera: Camera):
-    point = point - (camera.pos + camera.dir * camera.zoom)
-    x = Vec3(camera.xs.x, camera.xs.y, camera.xs.z) * point + 400
-    y = Vec3(camera.ys.x, camera.ys.y, camera.ys.z) * point + 300
-
-    return (int(x), int(y))
+    # TODO add methods to move the camera
 
 
-def render_face(screen: pygame.Surface, body: Body, i: int, camera: Camera):
-    cam_to_v1 = (body.v[body.f[i][0]] - camera.pos).normalize()
-    cam_to_v2 = (body.v[body.f[i][1]] - camera.pos).normalize()
-    cam_to_v3 = (body.v[body.f[i][2]] - camera.pos).normalize()
+class Renderer:
+    """
+    Class that handles the rendering.
 
-    proj1 = camera.pos + cam_to_v1 * (camera.dir * camera.zoom * camera.dir / (cam_to_v1 * camera.dir))
-    proj2 = camera.pos + cam_to_v2 * (camera.dir * camera.zoom * camera.dir / (cam_to_v2 * camera.dir))
-    proj3 = camera.pos + cam_to_v3 * (camera.dir * camera.zoom * camera.dir / (cam_to_v3 * camera.dir))
+    :param screen: pygame window of the application
+    :type screen: pygame.Surface
+    :param camera: camera that will render
+    :type camera: Camera
+    :param scene: scene to be rendered
+    :type scene: Scene
+    :param clock: pygame clock
+    :type clock: pygame.time.Clock
+    :param caption: caption of the window, defaults to "Py3dGame"
+    :type caption: str, optional
+    """
 
-    points = (
-        world_to_screen(proj1, camera),
-        world_to_screen(proj2, camera),
-        world_to_screen(proj3, camera),
-    )
+    pygame.init()
+    font = pygame.font.SysFont('arial', 18, True)
 
-    if body.single_color:
-        pygame.draw.polygon(screen, body.color, points)
-    else:
-        pygame.draw.polygon(screen, body.color[i], points)
-        #pygame.draw.lines(screen, invert_color(body.color[i]), True, points, 3)
+    def __init__(
+        self,
+        screen: pygame.Surface,
+        camera: Camera,
+        scene: Scene,
+        clock: pygame.time.Clock,
+        caption: str = "Py3dGame") -> None:
 
+        self.screen = screen
+        self.camera = camera
+        self.scene = scene
+        self.clock = clock
 
+        pygame.display.set_caption(caption)
 
+    def render(self) -> None:
+        """
+        Render all the object in scene.
+        """
 
-def render_body(screen: pygame.Surface, body: Body, camera: Camera):
-    for i, normal in enumerate(body.n):
-        cam_to_vertex = body.v[body.f[i][0]] - camera.pos
+        self.screen.fill(self.scene.bgc)
 
-        if cam_to_vertex * normal > 0:
-            render_face(screen, body, i, camera)
+        for body in self.scene.bodies.values():
+            self.render_body(body)
 
+        fps = self.clock.get_fps()
+        text = self.font.render(f"FPS: {fps:.2f}", True, WHITE)
+        self.screen.blit(text, (10, 10))
 
-def render(screen: pygame.Surface, scene: Scene, camera: Camera, real_fps: float = None, font: pygame.font.Font = None):
-    screen.fill(scene.bgc)
+        pygame.display.flip()
 
-    if real_fps is not None:
-        text = font.render(f"FPS: {real_fps:.2f}", True, Color.white)
-        screen.blit(text, (10, 10))
+    def render_body(self, body: Body):
+        """
+        Render a specific body.
 
-    for body in scene.bodies:
-        render_body(screen, body, camera)
+        :param body: body to render
+        :type body: Body
+        """
 
-    pygame.display.flip()
+        for i, normal in enumerate(body.n):
+            cam_to_vertex = body.v[body.f[i][0]] - self.camera.pos
+
+            if cam_to_vertex * normal > 0:
+                self.render_face(body, i)
+
+    def render_face(self, body: Body, i: int) -> None:
+        """
+        Render a specific face.
+
+        :param body: body that contain the face
+        :type body: Body
+        :param i: index of the face
+        :type i: int
+        """
+
+        cam_to_v1 = (body.v[body.f[i][0]] - self.camera.pos).normalize()
+        cam_to_v2 = (body.v[body.f[i][1]] - self.camera.pos).normalize()
+        cam_to_v3 = (body.v[body.f[i][2]] - self.camera.pos).normalize()
+
+        proj1 = self.camera.pos + cam_to_v1 * (self.camera.dir * self.camera.zoom *
+                                               self.camera.dir / (cam_to_v1 * self.camera.dir))
+        proj2 = self.camera.pos + cam_to_v2 * (self.camera.dir * self.camera.zoom *
+                                               self.camera.dir / (cam_to_v2 * self.camera.dir))
+        proj3 = self.camera.pos + cam_to_v3 * (self.camera.dir * self.camera.zoom *
+                                               self.camera.dir / (cam_to_v3 * self.camera.dir))
+
+        points = (
+            self.world_to_screen(proj1),
+            self.world_to_screen(proj2),
+            self.world_to_screen(proj3),
+        )
+
+        if body.single_color:
+            pygame.draw.polygon(self.screen, body.color, points)
+        else:
+            pygame.draw.polygon(self.screen, body.color[i], points)
+
+    def world_to_screen(self, point: Vec3) -> tuple[int, int]:
+        """
+        Convert the 3d point projected on the camera plane
+        in screen coordinates.
+
+        :param point: 3d point to convert
+        :type point: Vec3
+        :return: new screen coordinates
+        :rtype: tuple[int, int]
+        """
+
+        point = point - (self.camera.pos + self.camera.dir * self.camera.zoom)
+        x = (Vec3(self.camera.xs.x, self.camera.xs.y, self.camera.xs.z) *
+             point + self.screen.get_width() / 2)
+        y = (Vec3(self.camera.ys.x, self.camera.ys.y, self.camera.ys.z) *
+              point + self.screen.get_height() / 2)
+
+        return (int(x), int(y))

@@ -1,18 +1,21 @@
 """
-Module that implements the Vec class.
+Module for simplify 3d math.
 """
 
 from typing import Union, Iterable
-import numpy as np
 import math
+import numpy as np
 
 
 class Vec:
     """
-    Vector class to handle geometry operations.
+    Generic vector class to handle geometry operations.
+
+    :param array: array of floats
+    :type array: Iterable[float]
     """
 
-    def __init__(self, array: Iterable) -> None:
+    def __init__(self, array: Iterable[float]) -> None:
         self._vec = np.array(array)
 
     # mathematical operators
@@ -44,6 +47,13 @@ class Vec:
         return self.__class__.from_array(np.cross(self._vec, other._vec))
 
     def normalize(self) -> 'Vec':
+        """
+        Compute the normalized version of the vector.
+
+        :return: normalized vector
+        :rtype: Vec
+        """
+
         return self / abs(self)
 
     # boolean operators
@@ -53,14 +63,44 @@ class Vec:
     def __str__(self):
         return self._vec.__str__()
 
+    def to_nparray(self) -> np.ndarray:
+        """
+        Convert the :class:`Vec` instance to a `np.ndarray`.
+
+        :return: numpy array with the same elements
+        :rtype: np.ndarray
+        """
+
+        return self._vec
+
     @classmethod
-    def from_array(cls, array: Iterable) -> 'Vec':
+    def from_array(cls, array: Iterable[float]) -> 'Vec':
+        """
+        Constructor equal to the __init__ method.
+        This is needed just for inheritance purposes
+
+        :param array: array of floats
+        :type array: Iterable[float]
+        :return: instance of the class
+        :rtype: Vec
+        """
         return cls(np.array(array))
 
 
 class Vec3(Vec):
+    """
+    3D vector class that extends :class:`Vec`.
+
+    :param x: x coordinate of the vector
+    :type x: float
+    :param y: y coordinate of the vector
+    :type y: float
+    :param z: z coordinate of the vector
+    :type z: float
+    """
+
     def __init__(self, x: float, y: float, z: float) -> None:
-        super(Vec3, self).__init__((x, y, z))
+        super().__init__((x, y, z))
 
     @property
     def x(self) -> float:
@@ -107,6 +147,16 @@ class Vec3(Vec):
 
 
 class Quat(Vec):
+    """
+    Quaternion class for performing geometric rotations.
+    For this reason the queaternions will be generated using an angle and an axis definition.
+
+    :param angle: angle in radians of rotation around the axis
+    :type angle: float
+    :param axis: vector that represent the axis of the rotation
+    :type axis: Vec3
+    """
+
     def __init__(self, angle: float, axis: Vec3 = Vec3(0, 0, 1)) -> None:
         self.axis = axis.normalize()
         self.angle = angle
@@ -114,7 +164,7 @@ class Quat(Vec):
         x = self.axis.x * math.sin(angle / 2)
         y = self.axis.y * math.sin(angle / 2)
         z = self.axis.z * math.sin(angle / 2)
-        super(Quat, self).__init__((w, x, y, z))
+        super().__init__((w, x, y, z))
 
     @property
     def w(self) -> float:
@@ -179,7 +229,17 @@ class Quat(Vec):
 
     @classmethod
     def from_vec3(cls, vec: Vec3) -> 'Quat':
-        #quat = cls(0)
+        """
+        Generate a :class:`Quat` from a :class:`Vec3`.
+        If the given :class:`Vec3` is (x, y, z) the resulting
+        :class:`Quat` will be (0, x, y, z).
+
+        :param vec: initial vector
+        :type vec: Vec3
+        :return: resulting quaternion
+        :rtype: Quat
+        """
+
         w = 0
         x = vec.x
         y = vec.y
@@ -188,6 +248,15 @@ class Quat(Vec):
         return cls.from_array((w, x, y, z))
 
     def to_vec3(self) -> Vec:
+        """
+        Convert the :class:`Quat` to a :class:`Vec3`.
+        If the actual :class:`Quat` is (w, x, y, z) the resulting
+        :class:`Vec3` will be (x, y, z).
+
+        :return: new vector
+        :rtype: Vec
+        """
+
         return Vec3(self.x, self.y, self.z)
 
     def __mul__(self, other: 'Quat') -> 'Quat':
@@ -201,10 +270,31 @@ class Quat(Vec):
         return self.__class__.from_array(self._vec @ mat)
 
     def inverse(self) -> 'Quat':
+        """
+        Compute the inverse of a :class:`Quat`.
+        The inverse of q = (w, x, y, z) is computed as
+        q^(- 1) = (w, - x, - y, - z) / (|q|)^2
+
+        :return: inverse quaternion
+        :rtype: Quat
+        """
+
         return self.__class__.from_array((self.w, - self.x, - self.y, - self.z)) / abs(self) ** 2
 
 
 def rotate(vec: Vec3, quat: Quat):
+    """
+    Performs the rotation of a vector given a rotation quaternion.
+
+    :param vec: original vector that needs to be rotated
+    :type vec: Vec3
+    :param quat: quaternion representing a rotation with a
+        certain angle around a certain axis
+    :type quat: Quat
+    :return: rotated vector
+    :rtype: _type_
+    """
+
     vec = Quat.from_vec3(vec)
     new_quat = quat.inverse() * vec * quat
 

@@ -59,7 +59,7 @@ class Body:
         for face in self.f:
             v1 = self.v[face[1]] - self.v[face[0]]
             v2 = self.v[face[2]] - self.v[face[0]]
-            normals.append(v2 @ v1)
+            normals.append((v2 @ v1).normalize())
 
         self.n = tuple(normals)
 
@@ -224,12 +224,18 @@ class Scene:
     :type bgc: Color, optional
     :param bodies: dictionary of bodies that the scene has, defaults to None
     :type bodies: dict[str, Body], optional
+    :param light: direction of the light
+    :type light: Vec3
     """
 
-    def __init__(self, bgc: Color = BLACK,  bodies: dict[str, Body] = None) -> None:
+    def __init__(self,
+        bgc: Color = BLACK,
+        bodies: dict[str, Body] = None,
+        light: Vec3 = Vec3(0, 0, - 1)) -> None:
 
         self.bgc = bgc
         self.bodies = bodies
+        self.light = light
 
     def add_body(self, body: Body) -> None:
         """
@@ -245,9 +251,10 @@ class Scene:
             self.bodies[body.name] = body
 
     def remove_body(self, name: str) -> None:
-        """_summary_
+        """
+        Remove a body from the scene.
 
-        :param name: _description_
+        :param name: unique name of the body to remove
         :type name: str
         """
         self.bodies.pop(name)

@@ -18,7 +18,7 @@ def main():
         p3g.color.CYAN
     )
 
-    scene = p3g.Scene(p3g.color.BLACK)
+    scene = p3g.Scene(p3g.color.BLACK, light=p3g.Vec3(0, - 1, - 1).normalize())
     cube = p3g.Body.cube("cube", 10, color=color)
     scene.add_body(cube)
     camera = p3g.Camera(p3g.Vec3(-50, 0, 15), p3g.Vec3(1, 0, -0.3))

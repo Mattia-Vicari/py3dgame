@@ -4,7 +4,7 @@ Module for handling the rendering pipeline.
 
 import pygame
 from .math3d import Vec3
-from .color import WHITE
+from .color import WHITE, darken_color
 from .scene import Scene, Body
 
 
@@ -120,10 +120,12 @@ class Renderer:
             self.world_to_screen(proj3),
         )
 
+        light_intensity = (body.n[i] * self.scene.light) / 2 + 0.5
+
         if body.single_color:
-            pygame.draw.polygon(self.screen, body.color, points)
+            pygame.draw.polygon(self.screen, darken_color(body.color, light_intensity), points)
         else:
-            pygame.draw.polygon(self.screen, body.color[i], points)
+            pygame.draw.polygon(self.screen, darken_color(body.color[i], light_intensity), points)
 
     def world_to_screen(self, point: Vec3) -> tuple[int, int]:
         """

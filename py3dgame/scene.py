@@ -215,6 +215,117 @@ class Body:
 
         return cls(name, vertices, faces, pos, rot, color)
 
+    @classmethod
+    def sphere(
+        cls,
+        name: str,
+        radius: float,
+        quality: int = 1,
+        pos: Vec3 = Vec3(0, 0, 0),
+        rot: Quat = Quat(0, Vec3(0, 0, 1)),
+        color: Color = WHITE) -> 'Body':
+        """
+        Constructor method that generates a sphere with a specific radius.
+
+        :param name: unique name that identifies the body
+        :type name: str
+        :param radius: radius of the sphere
+        :type radius: float
+        :param quality: define the dfinition of the mesh, defaults to 1, minimum 0
+        :type quality: int, optional
+        :param pos: position of the origin of the body in the world reference system,
+            defaults to (0, 0, 0)
+        :type pos: tuple[float], optional
+        :param color: if a tuple with 3 values is used each face of the body will use that color,
+            to assign a specific color to each face use a `tuple` containing 6 `tuples`
+            representing the RGB triplet for each face, defaults to Color.white
+        :type color: tuple, optional
+        :return: instance of the class
+        :rtype: Body
+        """
+
+        t = (1 + 5 ** 0.5) / 2
+
+        vertices = [
+            Vec3(-1,  t,  0),
+            Vec3( 1,  t,  0),
+            Vec3(-1, -t,  0),
+            Vec3( 1, -t,  0),
+            Vec3( 0, -1,  t),
+            Vec3( 0,  1,  t),
+            Vec3( 0, -1, -t),
+            Vec3( 0,  1, -t),
+            Vec3( t,  0, -1),
+            Vec3( t,  0,  1),
+            Vec3(-t,  0, -1),
+            Vec3(-t,  0,  1),
+        ]
+
+        faces = [
+             (0, 11, 5),
+             (0, 5, 1),
+             (0, 1, 7),
+             (0, 7, 10),
+             (0, 10, 11),
+             (1, 5, 9),
+             (5, 11, 4),
+             (11, 10, 2),
+             (10, 7, 6),
+             (7, 1, 8),
+             (3, 9, 4),
+             (3, 4, 2),
+             (3, 2, 6),
+             (3, 6, 8),
+             (3, 8, 9),
+             (4, 9, 5),
+             (2, 4, 11),
+             (6, 2, 10),
+             (8, 6, 7),
+             (9, 8, 1),
+        ]
+
+        mid_cache = dict()
+
+        def get_mid_points(a, b):
+            key = math.floor((a + b) * (a + b + 1) / 2) + min(a, b)
+
+            if key in mid_cache:
+                return mid_cache[key]
+
+            mid_cache[key] = len(vertices)
+
+            vertices.append(Vec3(
+                (vertices[a].x + vertices[b].x) / 2,
+                (vertices[a].y + vertices[b].y) / 2,
+                (vertices[a].z + vertices[b].z) / 2,
+            ))
+
+            return len(vertices) - 1
+
+        prev_faces = faces
+
+        for i in range(quality):
+            faces = [0] * (len(prev_faces) * 4)
+
+            for k, face in enumerate(prev_faces):
+                v1 = face[0]
+                v2 = face[1]
+                v3 = face[2]
+                a = get_mid_points(v1, v2)
+                b = get_mid_points(v2, v3)
+                c = get_mid_points(v3, v1)
+                faces[k * 4] = (v1, a, c)
+                faces[k * 4 + 1] = (v2, b, a)
+                faces[k * 4 + 2] = (v3, c, b)
+                faces[k * 4 + 3] = (a, b, c)
+
+            prev_faces = faces
+
+        for i, vertex in enumerate(vertices):
+            vertices[i] = vertex.normalize() * radius
+
+        return cls(name, tuple(vertices), tuple(faces), pos, rot, color)
+
 
 class Scene:
     """

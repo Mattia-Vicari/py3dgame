@@ -63,7 +63,7 @@ class Body:
 
         self.n = tuple(normals)
 
-    def move(self, pos: Vec3 = None, rot: Quat = None) -> None:
+    def move(self, pos: Vec3 = None, rot: Quat = None, first_rotate: bool = True) -> None:
         """
         Move the body to a given position an with a certain rotation.
         If no arguments are passed will move the body according to the
@@ -84,7 +84,10 @@ class Body:
             self.rot = rot
 
         for vertex in self.vertices:
-            v.append(rotate(vertex + self.pos, self.rot))
+            if first_rotate:
+                v.append(rotate(vertex, self.rot) + self.pos)
+            else:
+                v.append(rotate(vertex + self.pos, self.rot))
 
         self.v = v
         self.compute_normals()

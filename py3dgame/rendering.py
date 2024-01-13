@@ -2,9 +2,10 @@
 Module for handling the rendering pipeline.
 """
 
+import heapq
 import pygame
 from .math3d import Vec3
-from .color import WHITE, darken_color
+from .color import WHITE, darken_color, Color
 from .scene import Scene, Body
 
 
@@ -60,6 +61,7 @@ class Renderer:
         self.camera = camera
         self.scene = scene
         self.clock = clock
+        self.queue = []
 
         pygame.display.set_caption(caption)
 
@@ -76,6 +78,10 @@ class Renderer:
         fps = self.clock.get_fps()
         text = self.font.render(f"FPS: {fps:.2f}", True, WHITE)
         self.screen.blit(text, (10, 10))
+
+        while self.queue:
+            _, color, points = heapq.heappop(self.queue)
+            pygame.draw.polygon(self.screen, color, points)
 
         pygame.display.flip()
 
@@ -103,9 +109,15 @@ class Renderer:
         :type i: int
         """
 
-        cam_to_v1 = (body.v[body.f[i][0]] - self.camera.pos).normalize()
-        cam_to_v2 = (body.v[body.f[i][1]] - self.camera.pos).normalize()
-        cam_to_v3 = (body.v[body.f[i][2]] - self.camera.pos).normalize()
+        cam_to_v1 = body.v[body.f[i][0]] - self.camera.pos
+        cam_to_v2 = body.v[body.f[i][1]] - self.camera.pos
+        cam_to_v3 = body.v[body.f[i][2]] - self.camera.pos
+
+        distance = - (abs(cam_to_v1) + abs(cam_to_v2) + abs(cam_to_v3))
+
+        cam_to_v1.normalize()
+        cam_to_v2.normalize()
+        cam_to_v3.normalize()
 
         proj1 = self.camera.pos + cam_to_v1 * (self.camera.dir * self.camera.zoom *
                                                self.camera.dir / (cam_to_v1 * self.camera.dir))
@@ -123,9 +135,9 @@ class Renderer:
         light_intensity = (body.n[i] * self.scene.light) / 2 + 0.5
 
         if body.single_color:
-            pygame.draw.polygon(self.screen, darken_color(body.color, light_intensity), points)
+            heapq.heappush(self.queue, (distance, darken_color(body.color, light_intensity), points))
         else:
-            pygame.draw.polygon(self.screen, darken_color(body.color[i], light_intensity), points)
+            heapq.heappush(self.queue, (distance, darken_color(body.color[i], light_intensity), points))
 
     def world_to_screen(self, point: Vec3) -> tuple[int, int]:
         """

@@ -3,9 +3,10 @@ Module for handling the rendering pipeline.
 """
 
 import heapq
+import numpy as np
 import pygame
-from .math3d import Vec3
-from .color import WHITE, darken_color, Color
+from .math3d import Vec3, Quat, rotate
+from .color import WHITE, darken_color
 from .scene import Scene, Body
 
 
@@ -24,10 +25,103 @@ class Camera:
         self.pos = pos
         self.dir = direction
         self.zoom = 1000
-        self.xs: Vec3 = self.dir @ Vec3(0, 0, 1)
-        self.ys: Vec3 = self.dir @ self.xs
+        self.xs: Vec3 = (self.dir @ Vec3(0, 0, 1)).normalize()
+        self.ys: Vec3 = (self.dir @ self.xs).normalize()
+        self.mouse_pos = None
+        self.top = Vec3(0, 0, 0)
+        self.right = Vec3(0, 0, 0)
+        self.bottom = Vec3(0, 0, 0)
+        self.left = Vec3(0, 0, 0)
 
-    # TODO add methods to move the camera
+    def handle_movements(self) -> None:
+        """
+        Move the mare position with A, W, S, D or the arrows and the
+        change the rotation using the mouse.
+        """
+
+        keys = pygame.key.get_pressed()
+        mouse_buttons = pygame.mouse.get_pressed()
+
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            self.pos = self.pos - self.xs
+
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            self.pos = self.pos + self.xs
+
+        if keys[pygame.K_UP] or keys[pygame.K_w]:
+            self.pos = self.pos + self.dir
+
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            self.pos = self.pos - self.dir
+
+        if mouse_buttons[1]:
+            if self.mouse_pos is not None:
+                mouse_pos = pygame.mouse.get_pos()
+                mouse_pos = Vec3(mouse_pos[0], mouse_pos[1], 0)
+                angle = - (self.mouse_pos - mouse_pos).x / 1000
+                self.dir = rotate(self.dir, Quat(angle, self.ys))
+                self.xs = (self.dir @ Vec3(0, 0, 1)).normalize()
+                self.ys = (self.dir @ self.xs).normalize()
+
+                angle = (self.mouse_pos - mouse_pos).y / 1000
+                self.dir = rotate(self.dir, Quat(angle, self.xs))
+                self.xs = (self.dir @ Vec3(0, 0, 1)).normalize()
+                self.ys = (self.dir @ self.xs).normalize()
+
+            mouse_pos = pygame.mouse.get_pos()
+            self.mouse_pos = Vec3(mouse_pos[0], mouse_pos[1], 0)
+        else:
+            self.mouse_pos = None
+
+    def update_fov(self, screen: pygame.Surface) -> None:
+        """
+        Computes the vectors to check whether a point is inside the field of view.
+
+        :param screen: pygame active window
+        :type screen: pygame.Surface
+        """
+
+        w = screen.get_width() / 2
+        h = screen.get_height() / 2
+
+        top_left = Vec3(- w, - h, self.zoom)
+        top_right = Vec3(w, - h, self.zoom)
+        bottom_right = Vec3(w, h, self.zoom)
+        bottom_left = Vec3(- w, h, self.zoom)
+
+        mat = np.array((self.xs.to_nparray(), self.ys.to_nparray(), self.dir.to_nparray()))
+        mat = np.linalg.inv(mat)
+
+        top_left = Vec3.from_array(mat @ top_left._vec)
+        top_right = Vec3.from_array(mat @ top_right._vec)
+        bottom_right = Vec3.from_array(mat @ bottom_right._vec)
+        bottom_left = Vec3.from_array(mat @ bottom_left._vec)
+
+        self.top = (top_left @ top_right).normalize()
+        self.right = (top_right @ bottom_right).normalize()
+        self.bottom = (bottom_right @ bottom_left).normalize()
+        self.left = (bottom_left @ top_left).normalize()
+
+    def inside_fov(self, *args: Vec3) -> bool:
+        """
+        Check whether a face is inside the field of view.
+
+        :return: ``True`` if at least one vertex is inside the field of view,
+            ``False`` otherwise
+        :rtype: bool
+        """
+
+        for vertex in args:
+            cam_to_vertex = vertex - self.pos
+
+            if (self.top * cam_to_vertex > 0 and
+                self.right * cam_to_vertex > 0 and
+                self.bottom * cam_to_vertex > 0 and
+                self.left * cam_to_vertex > 0):
+
+                return True
+
+        return False
 
 
 class Renderer:
@@ -62,6 +156,7 @@ class Renderer:
         self.scene = scene
         self.clock = clock
         self.queue = []
+        self.triangles = 0
 
         pygame.display.set_caption(caption)
 
@@ -71,13 +166,18 @@ class Renderer:
         """
 
         self.screen.fill(self.scene.bgc)
+        self.triangles = 0
+        # TODO call this function only if the camera pos or dir changes
+        self.camera.update_fov(self.screen)
 
         for body in self.scene.bodies.values():
             self.render_body(body)
 
         fps = self.clock.get_fps()
-        text = self.font.render(f"FPS: {fps:.2f}", True, WHITE)
-        self.screen.blit(text, (10, 10))
+        fps_text = self.font.render(f"FPS: {fps:.2f}", True, WHITE)
+        tri_text = self.font.render(f"Triangles: {self.triangles}", True, WHITE)
+        self.screen.blit(fps_text, (10, 10))
+        self.screen.blit(tri_text, (10, 30))
 
         while self.queue:
             _, color, points = heapq.heappop(self.queue)
@@ -97,7 +197,11 @@ class Renderer:
             cam_to_vertex = body.v[body.f[i][0]] - self.camera.pos
 
             if cam_to_vertex * normal > 0:
-                self.render_face(body, i)
+                if self.camera.inside_fov(body.v[body.f[i][0]],
+                                          body.v[body.f[i][1]],
+                                          body.v[body.f[i][2]]):
+                    self.triangles += 1
+                    self.render_face(body, i)
 
     def render_face(self, body: Body, i: int) -> None:
         """
@@ -135,9 +239,11 @@ class Renderer:
         light_intensity = (body.n[i] * self.scene.light) / 2 + 0.5
 
         if body.single_color:
-            heapq.heappush(self.queue, (distance, darken_color(body.color, light_intensity), points))
+            heapq.heappush(self.queue,
+                           (distance, darken_color(body.color, light_intensity), points))
         else:
-            heapq.heappush(self.queue, (distance, darken_color(body.color[i], light_intensity), points))
+            heapq.heappush(self.queue,
+                           (distance, darken_color(body.color[i], light_intensity), points))
 
     def world_to_screen(self, point: Vec3) -> tuple[int, int]:
         """
@@ -151,9 +257,7 @@ class Renderer:
         """
 
         point = point - (self.camera.pos + self.camera.dir * self.camera.zoom)
-        x = (Vec3(self.camera.xs.x, self.camera.xs.y, self.camera.xs.z) *
-             point + self.screen.get_width() / 2)
-        y = (Vec3(self.camera.ys.x, self.camera.ys.y, self.camera.ys.z) *
-              point + self.screen.get_height() / 2)
+        x = self.camera.xs * point + self.screen.get_width() / 2
+        y = self.camera.ys * point + self.screen.get_height() / 2
 
         return (int(x), int(y))

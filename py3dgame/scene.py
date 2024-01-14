@@ -43,8 +43,8 @@ class Body:
         self.rot = rot
         self.color = color
         self.single_color = True
-        self.n = ()
-        self.v = ()
+        self.n = []
+        self.v = []
         self.move()
 
         if isinstance(color[0], tuple):
@@ -55,13 +55,9 @@ class Body:
         Computes the normals for each face of the body.
         """
 
-        normals = []
-        for face in self.f:
-            v1 = self.v[face[1]] - self.v[face[0]]
-            v2 = self.v[face[2]] - self.v[face[0]]
-            normals.append((v2 @ v1).normalize())
+        self.n = [((self.v[face[2]] - self.v[face[0]]) @
+                    (self.v[face[1]] - self.v[face[0]])).normalize() for face in self.f]
 
-        self.n = tuple(normals)
 
     def move(self, pos: Vec3 = None, rot: Quat = None, first_rotate: bool = True) -> None:
         """
@@ -75,21 +71,17 @@ class Body:
         :type rot: Quat, optional
         """
 
-        v = []
-
         if pos is not None:
             self.pos = pos
 
         if rot is not None:
             self.rot = rot
 
-        for vertex in self.vertices:
-            if first_rotate:
-                v.append(rotate(vertex, self.rot) + self.pos)
-            else:
-                v.append(rotate(vertex + self.pos, self.rot))
+        if first_rotate:
+            self.v = [rotate(vertex, self.rot) + self.pos for vertex in self.vertices]
+        else:
+            self.v = [rotate(vertex + self.pos, self.rot) for vertex in self.vertices]
 
-        self.v = v
         self.compute_normals()
 
     def traslate(self, pos: Vec3):

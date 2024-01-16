@@ -4,7 +4,7 @@ Implementations of the scene and objects that can contain.
 
 import math
 from typing import Union
-from .color import WHITE, BLACK, Color
+from .color import WHITE, BLACK, Color, RED, BLUE, GREEN
 from .math3d import Vec3, Quat, rotate
 
 
@@ -118,6 +118,23 @@ class Body:
         """
         self.rotate(angle * math.pi / 180)
 
+    def relative_move(self, pos: Vec3 = None, rot: Quat = None, first_rotate: bool = True) -> None:
+        """
+        Move the body relatively to its actual position.
+
+        :param pos: additional position, defaults to None
+        :type pos: Vec3, optional
+        :param rot: additional rotation, defaults to None
+        :type rot: Quat, optional
+        """
+
+        if first_rotate:
+            self.v = [rotate(vertex, rot) + pos for vertex in self.v]
+        else:
+            self.v = [rotate(vertex + pos, rot) for vertex in self.v]
+
+        self.compute_normals()
+
     @classmethod
     def from_obj(cls, obj_file: str, name: str = None) -> 'Body':  # TODO
         """
@@ -141,6 +158,169 @@ class Body:
         return cls(name, vertices, faces, pos, rot, WHITE)
 
     @classmethod
+    def logo(
+        cls,
+        name: str,
+        pos: Vec3 = Vec3(0, 0, 0),
+        rot: Quat = Quat(0, Vec3(0, 0, 1))) -> 'Body':
+        """
+        Create Py3dGame logo.
+
+        :param name: unique name that identifies the body
+        :type name: str
+        :param pos: position of the origin of the body in the world reference system,
+            defaults to Vec3(0, 0, 0)
+        :type pos: Vec3, optional
+        :param rot: rotation of the body, defaults to Quat(0, Vec3(0, 0, 1))
+        :type rot: Quat, optional
+        :return: instance of the Body class
+        :rtype: Body
+        """
+
+        # TODO missing bottom face
+
+        vertices = (
+            # 0
+            Vec3(5, 5, 3),
+            Vec3(5, 5, 5),
+            Vec3(5, -5, 5),
+            Vec3(5, -5, -1),
+            Vec3(5, -3, -1),
+            Vec3(5, -3, 3),
+            Vec3(5, 5, 1),
+            Vec3(5, 5, -1),
+            Vec3(5, 3, -1),
+            Vec3(5, 3, 1),
+            # 10
+            Vec3(1, 3, 1),
+            Vec3(1, 3, -1),
+            Vec3(1, 1, -1),
+            Vec3(1, 1, 1),
+            Vec3(-3, 3, 5),
+            Vec3(-3, 3, 3),
+            Vec3(-3, -3, 3),
+            Vec3(-3, -5, 5),
+            Vec3(-3, -5, -5),
+            Vec3(-3, -3, -3),
+            # 20
+            Vec3(-3, 3, -3),
+            Vec3(-3, 5, -5),
+            Vec3(-3, 5, -1),
+            Vec3(-3, 3, -1),
+            Vec3(3, 3, 5),
+            Vec3(3, 3, 3),
+            Vec3(-1, 1, 1),
+            Vec3(-1, 1, -1),
+            Vec3(-5, 3, -3),
+            Vec3(-1, 3, 1),
+            # 30
+            Vec3(-1, 3, -1),
+            Vec3(3, -5, 5),
+            Vec3(3, -5, -1),
+            Vec3(-5, 3, 1),
+            Vec3(-5, -5, -5),
+            Vec3(-5, -5, 5),
+            Vec3(-5, 5, 5),
+            Vec3(-5, -3, -3),
+            Vec3(-5, 5, 1),
+            Vec3(-5, 5, 3),
+            # 40
+            Vec3(-5, -3, 3),
+            Vec3(3, -3, -1),
+            Vec3(-5, 5, -5),
+            Vec3(3, -3, 3)
+        )
+
+        faces = (
+            # 16 blue faces
+            (0, 1, 2),
+            (0, 2, 5),
+            (2, 3, 4),
+            (2, 4, 5),
+            (6, 8, 7),
+            (6, 9, 8),
+            (10, 12, 11),
+            (10, 13, 12),
+            (16, 15, 14),
+            (17, 16, 14),
+            (16, 17, 18),
+            (16, 18, 19),
+            (19, 18, 21),
+            (19, 21, 20),
+            (20, 21, 23),
+            (21, 22, 23),
+            # 14 red faces
+            (8, 9, 10),
+            (8, 10, 11),
+            (12, 13, 26),
+            (12, 26, 27),
+            (23, 30, 29),
+            (23, 29, 33),
+            (20, 23, 33),
+            (20, 33, 28),
+            (3, 2, 31),
+            (3, 31, 32),
+            (17, 35, 18),
+            (18, 35, 34),
+            (25, 24, 14),
+            (25, 14, 15),
+            # 12 green faces
+            (2, 1, 24),
+            (2, 24, 31),
+            (1, 36, 24),
+            (24, 36, 14),
+            (14, 36, 35),
+            (14, 35, 17),
+            (20, 28, 19),
+            (19, 28, 37),
+            (6, 38, 9),
+            (9, 38, 33),
+            (10, 29, 13),
+            (13, 29, 26),
+            # 10 white faces (opposite to red)
+            (1, 0, 36),
+            (36, 0, 39),
+            (6, 7, 38),
+            (38, 7, 22),
+            (38, 22, 42),
+            (22, 21, 42),
+            (5, 4, 43),
+            (4, 41, 43),
+            (40, 16, 19),
+            (40, 19, 37),
+            # 13 white faces (opposite to blue)
+            (29, 30, 27),
+            (26, 29, 27),
+            (24, 25, 43),
+            (43, 31, 24),
+            (43, 32, 31),
+            (43, 41, 32),
+            (38, 42, 28),
+            (33, 38, 28),
+            (28, 42, 34),
+            (28, 34, 37),
+            (37, 34, 35),
+            (35, 36, 40),
+            (36, 39, 40),
+            (35, 40, 37)
+        )
+
+        color = (
+            BLUE, BLUE, BLUE, BLUE, BLUE, BLUE, BLUE, BLUE,
+            BLUE, BLUE, BLUE, BLUE, BLUE, BLUE, BLUE, BLUE,
+            RED, RED, RED, RED, RED, RED, RED,
+            RED, RED, RED, RED, RED, RED, RED,
+            GREEN, GREEN, GREEN, GREEN, GREEN, GREEN,
+            GREEN, GREEN, GREEN, GREEN, GREEN, GREEN,
+            WHITE, WHITE, WHITE, WHITE, WHITE,
+            WHITE, WHITE, WHITE, WHITE, WHITE,
+            WHITE, WHITE, WHITE, WHITE, WHITE, WHITE, WHITE,
+            WHITE, WHITE, WHITE, WHITE, WHITE, WHITE, WHITE
+        )
+
+        return cls(name, vertices, faces, pos, rot, color)
+
+    @classmethod
     def cube(
         cls,
         name: str,
@@ -156,8 +336,10 @@ class Body:
         :param dim: length of the cube edges
         :type dim: float
         :param pos: position of the origin of the body in the world reference system,
-            defaults to (0, 0, 0)
-        :type pos: tuple[float], optional
+            defaults to Vec3(0, 0, 0)
+        :type pos: Vec3, optional
+        :param rot: rotation of the body, defaults to Quat(0, Vec3(0, 0, 1))
+        :type rot: Quat, optional
         :param color: if a tuple with 3 values is used each face of the body will use that color,
             to assign a specific color to each face use a `tuple` containing 6 `tuples`
             representing the RGB triplet for each face, defaults to Color.white
@@ -229,8 +411,10 @@ class Body:
         :param quality: define the dfinition of the mesh, defaults to 1, minimum 0
         :type quality: int, optional
         :param pos: position of the origin of the body in the world reference system,
-            defaults to (0, 0, 0)
-        :type pos: tuple[float], optional
+            defaults to Vec3(0, 0, 0)
+        :type pos: Vec3, optional
+        :param rot: rotation of the body, defaults to Quat(0, Vec3(0, 0, 1))
+        :type rot: Quat, optional
         :param color: if a tuple with 3 values is used each face of the body will use that color,
             to assign a specific color to each face use a `tuple` containing 6 `tuples`
             representing the RGB triplet for each face, defaults to Color.white
@@ -363,4 +547,5 @@ class Scene:
         :param name: unique name of the body to remove
         :type name: str
         """
+
         self.bodies.pop(name)

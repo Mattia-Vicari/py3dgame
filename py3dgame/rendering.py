@@ -32,6 +32,8 @@ class Camera:
         self.right = Vec3(0, 0, 0)
         self.bottom = Vec3(0, 0, 0)
         self.left = Vec3(0, 0, 0)
+        self.k = self.dir * self.zoom * self.dir
+        self.plane_center = self.pos + self.dir * self.zoom
 
     def handle_movements(self) -> None:
         """
@@ -68,10 +70,14 @@ class Camera:
                 self.xs = (self.dir @ Vec3(0, 0, 1)).normalize()
                 self.ys = (self.dir @ self.xs).normalize()
 
+                self.k = self.dir * self.zoom * self.dir
+
             mouse_pos = pygame.mouse.get_pos()
             self.mouse_pos = Vec3(mouse_pos[0], mouse_pos[1], 0)
         else:
             self.mouse_pos = None
+
+        self.plane_center = self.pos + self.dir * self.zoom
 
     def update_fov(self, screen: pygame.Surface) -> None:
         """
@@ -81,6 +87,8 @@ class Camera:
         :type screen: pygame.Surface
         """
 
+        # TODO refactor this function
+
         w = screen.get_width() / 2
         h = screen.get_height() / 2
 
@@ -89,13 +97,22 @@ class Camera:
         bottom_right = Vec3(w, h, self.zoom)
         bottom_left = Vec3(- w, h, self.zoom)
 
-        mat = np.array((self.xs.to_nparray(), self.ys.to_nparray(), self.dir.to_nparray()))
+        mat = np.array((
+            np.array((self.xs.x, self.xs.y, self.xs.z)),
+            np.array((self.ys.x, self.ys.y, self.ys.z)),
+            np.array((self.dir.x, self.dir.y, self.dir.z))
+        ))
         mat = np.linalg.inv(mat)
 
-        top_left = Vec3.from_array(mat @ top_left._vec)
-        top_right = Vec3.from_array(mat @ top_right._vec)
-        bottom_right = Vec3.from_array(mat @ bottom_right._vec)
-        bottom_left = Vec3.from_array(mat @ bottom_left._vec)
+        top_left = mat @ np.array((top_left.x, top_left.y, top_left.z))
+        top_right = mat @ np.array((top_right.x, top_right.y, top_right.z))
+        bottom_right = mat @ np.array((bottom_right.x, bottom_right.y, bottom_right.z))
+        bottom_left = mat @ np.array((bottom_left.x, bottom_left.y, bottom_left.z))
+
+        top_left = Vec3(top_left[0], top_left[1], top_left[2])
+        top_right = Vec3(top_right[0], top_right[1], top_right[2])
+        bottom_right = Vec3(bottom_right[0], bottom_right[1], bottom_right[2])
+        bottom_left = Vec3(bottom_left[0], bottom_left[1], bottom_left[2])
 
         self.top = (top_left @ top_right).normalize()
         self.right = (top_right @ bottom_right).normalize()
@@ -219,16 +236,9 @@ class Renderer:
 
         distance = - (abs(cam_to_v1) + abs(cam_to_v2) + abs(cam_to_v3))
 
-        cam_to_v1.normalize()
-        cam_to_v2.normalize()
-        cam_to_v3.normalize()
-
-        proj1 = self.camera.pos + cam_to_v1 * (self.camera.dir * self.camera.zoom *
-                                               self.camera.dir / (cam_to_v1 * self.camera.dir))
-        proj2 = self.camera.pos + cam_to_v2 * (self.camera.dir * self.camera.zoom *
-                                               self.camera.dir / (cam_to_v2 * self.camera.dir))
-        proj3 = self.camera.pos + cam_to_v3 * (self.camera.dir * self.camera.zoom *
-                                               self.camera.dir / (cam_to_v3 * self.camera.dir))
+        proj1 = self.camera.pos + cam_to_v1 * (self.camera.k / (cam_to_v1 * self.camera.dir))
+        proj2 = self.camera.pos + cam_to_v2 * (self.camera.k / (cam_to_v2 * self.camera.dir))
+        proj3 = self.camera.pos + cam_to_v3 * (self.camera.k / (cam_to_v3 * self.camera.dir))
 
         points = (
             self.world_to_screen(proj1),
@@ -256,8 +266,8 @@ class Renderer:
         :rtype: tuple[int, int]
         """
 
-        point = point - (self.camera.pos + self.camera.dir * self.camera.zoom)
+        point = point - self.camera.plane_center
         x = self.camera.xs * point + self.screen.get_width() / 2
         y = self.camera.ys * point + self.screen.get_height() / 2
 
-        return (int(x), int(y))
+        return (x, y)

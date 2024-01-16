@@ -2,94 +2,13 @@
 Module for simplify 3d math.
 """
 
-from typing import Union, Iterable
+from typing import Union
 import math
-import numpy as np
 
 
-class Vec:
+class Vec3:
     """
-    Generic vector class to handle geometry operations.
-
-    :param array: array of floats
-    :type array: Iterable[float]
-    """
-
-    def __init__(self, array: Iterable[float]) -> None:
-        self._vec = np.array(array)
-
-    # mathematical operators
-    def __add__(self, other: 'Vec') -> 'Vec':
-        return self.__class__.from_array(self._vec + other._vec)
-
-    def __sub__(self, other: 'Vec' = 0) -> 'Vec':
-        return self.__class__.from_array(self._vec - other._vec)
-
-    def __neg__(self) -> 'Vec':
-        return self.__class__.from_array(- self._vec)
-
-    def __abs__(self) -> float:
-        return sum(self._vec ** 2) ** 0.5
-
-    def __mul__(self, other: Union[float, 'Vec']) -> Union[float, 'Vec']:
-        if isinstance(other, Vec):
-            return sum(self._vec * other._vec)
-
-        return self.__class__.from_array(self._vec * other)
-
-    def __rmul__(self, other: float) -> 'Vec':
-        return self.__class__.from_array(self._vec * other)
-
-    def __truediv__(self, other: float) -> 'Vec':
-        return self.__class__.from_array(self._vec / other)
-
-    def __matmul__(self, other: 'Vec') -> 'Vec':
-        return self.__class__.from_array(np.cross(self._vec, other._vec))
-
-    def normalize(self) -> 'Vec':
-        """
-        Compute the normalized version of the vector.
-
-        :return: normalized vector
-        :rtype: Vec
-        """
-
-        return self / abs(self)
-
-    # boolean operators
-    def __eq__(self, other: 'Vec'):
-        return np.allclose(self._vec, other._vec)
-
-    def __str__(self):
-        return self._vec.__str__()
-
-    def to_nparray(self) -> np.ndarray:
-        """
-        Convert the :class:`Vec` instance to a `np.ndarray`.
-
-        :return: numpy array with the same elements
-        :rtype: np.ndarray
-        """
-
-        return self._vec
-
-    @classmethod
-    def from_array(cls, array: Iterable[float]) -> 'Vec':
-        """
-        Constructor equal to the __init__ method.
-        This is needed just for inheritance purposes
-
-        :param array: array of floats
-        :type array: Iterable[float]
-        :return: instance of the class
-        :rtype: Vec
-        """
-        return cls(np.array(array))
-
-
-class Vec3(Vec):
-    """
-    3D vector class that extends :class:`Vec`.
+    3D vector class.
 
     :param x: x coordinate of the vector
     :type x: float
@@ -100,53 +19,68 @@ class Vec3(Vec):
     """
 
     def __init__(self, x: float, y: float, z: float) -> None:
-        super().__init__((x, y, z))
+        self.x = x
+        self.y = y
+        self.z = z
 
-    @property
-    def x(self) -> float:
+    def __add__(self, other: 'Vec3') -> 'Vec3':
+
+        return Vec3(self.x + other.x, self.y + other.y, self.z + other.z)
+
+    def __sub__(self, other: 'Vec3') -> 'Vec3':
+
+        return Vec3(self.x - other.x, self.y - other.y, self.z - other.z)
+
+    def __neg__(self) -> 'Vec3':
+
+        return Vec3(- self.x, - self.y, - self.z)
+
+    def __abs__(self) -> float:
+
+        return (self.x * self.x + self.y * self.y + self.z * self.z) ** 0.5
+
+    def __mul__(self, other: Union[float, 'Vec3']) -> Union[float, 'Vec3']:
+
+        if isinstance(other, Vec3):
+            return self.x * other.x + self.y * other.y + self.z * other.z
+
+        return Vec3(self.x * other, self.y * other, self.z * other)
+
+    def __rmul__(self, other: float) -> 'Vec3':
+
+        return Vec3(self.x * other, self.y * other, self.z * other)
+
+    def __truediv__(self, other: float) -> 'Vec3':
+
+        return Vec3(self.x / other, self.y / other, self.z / other)
+
+    def __matmul__(self, other: 'Vec3') -> 'Vec3':
+        x = self.y * other.z - self.z * other.y
+        y = self.z * other.x - self.x * other.z
+        z = self.x * other.y - self.y * other.x
+
+        return Vec3(x, y, z)
+
+    def normalize(self) -> 'Vec3':
         """
-        Allow access to the x cordinate of the vector.
+        Compute the normalized version of the vector.
+
+        :return: normalized vector
+        :rtype: Vec3
         """
 
-        return self._vec[0]
+        return self / abs(self)
 
-    @x.setter
-    def x(self, new_value: float) -> None:
-        self._vec[0] = new_value
-
-    @property
-    def y(self) -> float:
-        """
-        Allow access to the y cordinate of the vector.
-        """
-
-        return self._vec[1]
-
-    @y.setter
-    def y(self, new_value: float) -> None:
-        self._vec[1] = new_value
-
-    @property
-    def z(self) -> float:
-        """
-        Allow access to the z cordinate of the vector.
-        """
-
-        return self._vec[2]
-
-    @z.setter
-    def z(self, new_value: float) -> None:
-        self._vec[2] = new_value
+    def __eq__(self, other: 'Vec3') -> bool:
+        return (math.isclose(self.x, other.x, abs_tol=1e-12) and
+                math.isclose(self.y, other.y, abs_tol=1e-12) and
+                math.isclose(self.z, other.z, abs_tol=1e-12))
 
     def __str__(self):
-        return f"(x: {self.x:.4f}, y: {self.y:.4f}, z: {self.z:.4f})"
-
-    @classmethod
-    def from_array(cls, array: Iterable) -> 'Vec3':
-        return cls(array[0], array[1], array[2])
+        return f"Vec3: (x: {self.x:.4f}, y: {self.y:.4f}, z: {self.z:.4f})"
 
 
-class Quat(Vec):
+class Quat:
     """
     Quaternion class for performing geometric rotations.
     For this reason the queaternions will be generated using an angle and an axis definition.
@@ -160,70 +94,36 @@ class Quat(Vec):
     def __init__(self, angle: float, axis: Vec3 = Vec3(0, 0, 1)) -> None:
         self.axis = axis.normalize()
         self.angle = angle
-        w = math.cos(angle / 2)
-        x = self.axis.x * math.sin(angle / 2)
-        y = self.axis.y * math.sin(angle / 2)
-        z = self.axis.z * math.sin(angle / 2)
-        super().__init__((w, x, y, z))
-
-    @property
-    def w(self) -> float:
-        """
-        Allow access to the w cordinate of the vector.
-        """
-
-        return self._vec[0]
-
-    @w.setter
-    def w(self, new_value: float) -> None:
-        self._vec[0] = new_value
-
-    @property
-    def x(self) -> float:
-        """
-        Allow access to the x cordinate of the vector.
-        """
-
-        return self._vec[1]
-
-    @x.setter
-    def x(self, new_value: float) -> None:
-        self._vec[1] = new_value
-
-    @property
-    def y(self) -> float:
-        """
-        Allow access to the y cordinate of the vector.
-        """
-
-        return self._vec[2]
-
-    @y.setter
-    def y(self, new_value: float) -> None:
-        self._vec[2] = new_value
-
-    @property
-    def z(self) -> float:
-        """
-        Allow access to the z cordinate of the vector.
-        """
-
-        return self._vec[3]
-
-    @z.setter
-    def z(self, new_value: float) -> None:
-        self._vec[3] = new_value
+        self.w = math.cos(angle / 2)
+        self.x = self.axis.x * math.sin(angle / 2)
+        self.y = self.axis.y * math.sin(angle / 2)
+        self.z = self.axis.z * math.sin(angle / 2)
 
     def __str__(self):
-        return f"(w: {self.w:.4f}, x: {self.x:.4f}, y: {self.y:.4f}, z: {self.z:.4f})"
+        return f"Quat: (w: {self.w:.4f}, x: {self.x:.4f}, y: {self.y:.4f}, z: {self.z:.4f})"
 
     @classmethod
-    def from_array(cls, array: Iterable) -> 'Quat':
+    def from_coord(cls, w: float, x: float, y: float, z: float) -> 'Quat':
+        """
+        Generate a :class:`Quat` from its coordinates.
+
+        :param w: w coordinate
+        :type w: float
+        :param x: x coordinate
+        :type x: float
+        :param y: y coordinate
+        :type y: float
+        :param z: z coordinate
+        :type z: float
+        :return: resulting quaternion
+        :rtype: Quat
+        """
+
         quat = cls(0)
-        quat.w = array[0]
-        quat.x = array[1]
-        quat.y = array[2]
-        quat.z = array[3]
+        quat.w = w
+        quat.x = x
+        quat.y = y
+        quat.z = z
 
         return quat
 
@@ -245,9 +145,9 @@ class Quat(Vec):
         y = vec.y
         z = vec.z
 
-        return cls.from_array((w, x, y, z))
+        return cls.from_coord(w, x, y, z)
 
-    def to_vec3(self) -> Vec:
+    def to_vec3(self) -> Vec3:
         """
         Convert the :class:`Quat` to a :class:`Vec3`.
         If the actual :class:`Quat` is (w, x, y, z) the resulting
@@ -259,16 +159,6 @@ class Quat(Vec):
 
         return Vec3(self.x, self.y, self.z)
 
-    def __mul__(self, other: 'Quat') -> 'Quat':
-        mat = np.array((
-            (other.w, other.x, other.y, other.z),
-            (- other.x, other.w, - other.z, other.y),
-            (- other.y, other.z, other.w, - other.x),
-            (- other.z, - other.y, other.x, other.w)
-        ))
-
-        return self.__class__.from_array(self._vec @ mat)
-
     def inverse(self) -> 'Quat':
         """
         Compute the inverse of a :class:`Quat`.
@@ -279,7 +169,47 @@ class Quat(Vec):
         :rtype: Quat
         """
 
-        return self.__class__.from_array((self.w, - self.x, - self.y, - self.z)) / abs(self) ** 2
+        return Quat.from_coord(self.w, - self.x, - self.y, - self.z) / abs(self) / abs(self)
+
+    def __add__(self, other: 'Quat') -> 'Quat':
+
+        return Quat.from_coord(self.w + other.w,
+                               self.x + other.x,
+                               self.y + other.y,
+                               self.z + other.z)
+
+    def __sub__(self, other: 'Quat') -> 'Quat':
+
+        return Quat.from_coord(self.w - other.w,
+                               self.x - other.x,
+                               self.y - other.y,
+                               self.z - other.z)
+
+    def __neg__(self) -> 'Quat':
+
+        return Quat.from_coord(- self.w, - self.x, - self.y, - self.z)
+
+    def __abs__(self) -> float:
+
+        return (self.w * self.w + self.x * self.x + self.y * self.y + self.z * self.z) ** 0.5
+
+    def __mul__(self, other: 'Quat') -> 'Quat':
+        w = self.w * other.w - self.x * other.x - self.y * other.y - self.z * other.z
+        x = self.w * other.x + self.x * other.w + self.y * other.z - self.z * other.y
+        y = self.w * other.y - self.x * other.z + self.y * other.w + self.z * other.x
+        z = self.w * other.z + self.x * other.y - self.y * other.x + self.z * other.w
+
+        return Quat.from_coord(w, x, y, z)
+
+    def __truediv__(self, other: float) -> 'Quat':
+
+        return Quat.from_coord(self.w / other, self.x / other, self.y / other, self.z / other)
+
+    def __eq__(self, other: 'Quat') -> bool:
+        return (math.isclose(self.w, other.w, abs_tol=1e-12) and
+                math.isclose(self.x, other.x, abs_tol=1e-12) and
+                math.isclose(self.y, other.y, abs_tol=1e-12) and
+                math.isclose(self.z, other.z, abs_tol=1e-12))
 
 
 def rotate(vec: Vec3, quat: Quat):

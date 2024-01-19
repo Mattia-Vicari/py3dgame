@@ -288,7 +288,7 @@ class Body:
             (4, 41, 43),
             (40, 16, 19),
             (40, 19, 37),
-            # 13 white faces (opposite to blue)
+            # 14 white faces (opposite to blue)
             (29, 30, 27),
             (26, 29, 27),
             (24, 25, 43),
@@ -302,7 +302,22 @@ class Body:
             (37, 34, 35),
             (35, 36, 40),
             (36, 39, 40),
-            (35, 40, 37)
+            (35, 40, 37),
+            # 14 white faces (opposite to green)
+            (7, 8, 22),
+            (8, 23, 22),
+            (11, 12, 30),
+            (12, 27, 30),
+            (4, 3, 32),
+            (4, 32, 41),
+            (21, 18, 42),
+            (18, 34, 42),
+            (15, 16, 40),
+            (15, 40, 39),
+            (39, 25, 15),
+            (0, 25, 39),
+            (0, 5, 25),
+            (5, 43, 25)
         )
 
         color = (
@@ -314,6 +329,8 @@ class Body:
             GREEN, GREEN, GREEN, GREEN, GREEN, GREEN,
             WHITE, WHITE, WHITE, WHITE, WHITE,
             WHITE, WHITE, WHITE, WHITE, WHITE,
+            WHITE, WHITE, WHITE, WHITE, WHITE, WHITE, WHITE,
+            WHITE, WHITE, WHITE, WHITE, WHITE, WHITE, WHITE,
             WHITE, WHITE, WHITE, WHITE, WHITE, WHITE, WHITE,
             WHITE, WHITE, WHITE, WHITE, WHITE, WHITE, WHITE
         )

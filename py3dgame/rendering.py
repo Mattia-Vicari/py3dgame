@@ -3,9 +3,8 @@ Module for handling the rendering pipeline.
 """
 
 import heapq
-import numpy as np
 import pygame
-from .math3d import Vec3, Quat, rotate
+from .math3d import Vec3, Quat, Mat, rotate
 from .color import WHITE, darken_color
 from .scene import Scene, Body
 
@@ -87,8 +86,6 @@ class Camera:
         :type screen: pygame.Surface
         """
 
-        # TODO refactor this function
-
         w = screen.get_width() / 2
         h = screen.get_height() / 2
 
@@ -97,22 +94,12 @@ class Camera:
         bottom_right = Vec3(w, h, self.zoom)
         bottom_left = Vec3(- w, h, self.zoom)
 
-        mat = np.array((
-            np.array((self.xs.x, self.xs.y, self.xs.z)),
-            np.array((self.ys.x, self.ys.y, self.ys.z)),
-            np.array((self.dir.x, self.dir.y, self.dir.z))
-        ))
-        mat = np.linalg.inv(mat)
+        mat = Mat(self.xs, self.ys, self.dir).inverse()
 
-        top_left = mat @ np.array((top_left.x, top_left.y, top_left.z))
-        top_right = mat @ np.array((top_right.x, top_right.y, top_right.z))
-        bottom_right = mat @ np.array((bottom_right.x, bottom_right.y, bottom_right.z))
-        bottom_left = mat @ np.array((bottom_left.x, bottom_left.y, bottom_left.z))
-
-        top_left = Vec3(top_left[0], top_left[1], top_left[2])
-        top_right = Vec3(top_right[0], top_right[1], top_right[2])
-        bottom_right = Vec3(bottom_right[0], bottom_right[1], bottom_right[2])
-        bottom_left = Vec3(bottom_left[0], bottom_left[1], bottom_left[2])
+        top_left = mat @ top_left
+        top_right = mat @ top_right
+        bottom_right = mat @ bottom_right
+        bottom_left = mat @ bottom_left
 
         self.top = (top_left @ top_right).normalize()
         self.right = (top_right @ bottom_right).normalize()
@@ -190,15 +177,15 @@ class Renderer:
         for body in self.scene.bodies.values():
             self.render_body(body)
 
+        while self.queue:
+            _, color, points = heapq.heappop(self.queue)
+            pygame.draw.polygon(self.screen, color, points)
+
         fps = self.clock.get_fps()
         fps_text = self.font.render(f"FPS: {fps:.2f}", True, WHITE)
         tri_text = self.font.render(f"Triangles: {self.triangles}", True, WHITE)
         self.screen.blit(fps_text, (10, 10))
         self.screen.blit(tri_text, (10, 30))
-
-        while self.queue:
-            _, color, points = heapq.heappop(self.queue)
-            pygame.draw.polygon(self.screen, color, points)
 
         pygame.display.flip()
 

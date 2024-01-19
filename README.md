@@ -19,6 +19,7 @@ Here, a really optimistic features that I would like to implement in the feature
 
 - 🌒 shadows handling
 - ⚛️ physics engine
+- 🤖 build a RL playground
 
 ## Contributing
 

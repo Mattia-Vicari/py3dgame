@@ -191,3 +191,39 @@ class TestQuat:
         print(q1 * q2)
         assert (q1 * q2) == p3g.Quat.from_coord(- 18, 16, 16, 8)
 
+
+class TestMat:
+    """
+    Class containing tests for the methods of :class:`Mat`.
+    """
+
+    def test_det(self) -> None:
+        """
+        Test det method of :class:`Mat`.
+        """
+
+        m = p3g.Mat(p3g.Vec3(1, 2, 3), p3g.Vec3(0, 1, 0), p3g.Vec3(3, 2, 1))
+
+        assert m.det() == - 8
+
+    def test_inverse(self) -> None:
+        """
+        Test inverse method of :class:`Mat`.
+        """
+
+        m = p3g.Mat(p3g.Vec3(1, 2, 3), p3g.Vec3(0, 1, 0), p3g.Vec3(3, 2, 1))
+        m = m.inverse()
+        print(m.r2)
+
+        assert m.r1 == p3g.Vec3(- 0.125, - 0.5, 0.375)
+        assert m.r2 == p3g.Vec3(0, 1, 0)
+        assert m.r3 == p3g.Vec3(0.375, - 0.5, - 0.125)
+
+    def test_matmul(self) -> None:
+        """
+        Test __matmul__ method of :class:`Mat`.
+        """
+
+        m = p3g.Mat(p3g.Vec3(1, 0, 0), p3g.Vec3(0, 1, 0), p3g.Vec3(0, 0, 1))
+
+        assert m @ p3g.Vec3(1, 2, 3) == p3g.Vec3(1, 2, 3)

@@ -4,6 +4,7 @@ Module for simplify 3d math.
 
 from typing import Union
 import math
+import warnings
 
 
 class Vec3:
@@ -210,6 +211,74 @@ class Quat:
                 math.isclose(self.x, other.x, abs_tol=1e-12) and
                 math.isclose(self.y, other.y, abs_tol=1e-12) and
                 math.isclose(self.z, other.z, abs_tol=1e-12))
+
+
+class Mat:
+    """
+    3D matrix class.
+
+    :param r1: first row of the matrix
+    :type r1: Vec3
+    :param r2: second row of the matrix
+    :type r2: Vec3
+    :param r3: third row of the matrix
+    :type r3: Vec3
+    """
+
+    def __init__(self, r1: Vec3, r2: Vec3, r3: Vec3) -> None:
+        self.r1 = r1
+        self.r2 = r2
+        self.r3 = r3
+
+    def det(self) -> float:
+        """
+        Computes the determinant of the matrix.
+
+        :return: determinant
+        :rtype: float
+        """
+
+        det = (self.r1.x * self.r2.y * self.r3.z +
+               self.r2.x * self.r3.y * self.r1.z +
+               self.r3.x * self.r1.y * self.r2.z -
+               self.r1.x * self.r3.y * self.r2.z -
+               self.r2.x * self.r1.y * self.r3.z -
+               self.r3.x * self.r2.y * self.r1.z)
+
+        if math.isclose(0, det, abs_tol=1e-9):
+            warnings.warn(f"Determinant equal to {det}, the matrix may be singular!")
+
+        return det
+
+    def inverse(self) -> 'Mat':
+        """
+        Computes the inverse of the matrix.
+
+        :return: inverted matrix
+        :rtype: Mat
+        """
+
+        det = self.det()
+        r1 = Vec3(
+            self.r2.y * self.r3.z - self.r3.y * self.r2.z,
+            self.r3.y * self.r1.z - self.r1.y * self.r3.z,
+            self.r1.y * self.r2.z - self.r2.y * self.r1.z
+        ) / det
+        r2 = Vec3(
+            self.r3.x * self.r2.z - self.r2.x * self.r3.z,
+            self.r1.x * self.r3.z - self.r3.x * self.r1.z,
+            self.r2.x * self.r1.z - self.r1.x * self.r2.z
+        ) / det
+        r3 = Vec3(
+            self.r2.x * self.r3.y - self.r3.x * self.r2.y,
+            self.r3.x * self.r1.y - self.r1.x * self.r3.y,
+            self.r1.x * self.r2.y - self.r2.x * self.r1.y
+        ) / det
+
+        return Mat(r1, r2, r3)
+
+    def __matmul__(self, other: Vec3) -> Vec3:
+        return Vec3(self.r1 * other, self.r2 * other, self.r3 * other)
 
 
 def rotate(vec: Vec3, quat: Quat):

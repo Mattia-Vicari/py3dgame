@@ -19,7 +19,11 @@ class Camera:
     :type direction: Vec3, optional
     """
 
-    def __init__(self, pos: Vec3 = Vec3(0, 0, 0), direction: Vec3 = Vec3(1, 0, 0)) -> None:
+    def __init__(
+            self,
+            pos: Vec3 = Vec3(0, 0, 0),
+            direction: Vec3 = Vec3(1, 0, 0),
+            max_distance: int = 1000) -> None:
 
         self.pos = pos
         self.dir = direction
@@ -33,6 +37,7 @@ class Camera:
         self.left = Vec3(0, 0, 0)
         self.k = self.dir * self.zoom * self.dir
         self.plane_center = self.pos + self.dir * self.zoom
+        self.max_distance = max_distance
 
     def handle_movements(self) -> None:
         """
@@ -221,7 +226,10 @@ class Renderer:
         cam_to_v2 = body.v[body.f[i][1]] - self.camera.pos
         cam_to_v3 = body.v[body.f[i][2]] - self.camera.pos
 
-        distance = - (abs(cam_to_v1) + abs(cam_to_v2) + abs(cam_to_v3))
+        distance = - (abs(cam_to_v1) + abs(cam_to_v2) + abs(cam_to_v3)) / 3
+
+        if distance < - self.camera.max_distance:
+            return False
 
         proj1 = self.camera.pos + cam_to_v1 * (self.camera.k / (cam_to_v1 * self.camera.dir))
         proj2 = self.camera.pos + cam_to_v2 * (self.camera.k / (cam_to_v2 * self.camera.dir))

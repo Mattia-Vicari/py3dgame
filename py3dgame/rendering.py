@@ -34,6 +34,18 @@ class Camera:
         self.zfar = 1000
         self.znear = 0.1
 
+        self.w = 0
+        self.h = 0
+        self.a = 0
+        self.f = 0
+        self.q = 0
+        self.af = 0
+        self.up = Vec3(0, 0, 0)
+        self.right = Vec3(0, 0, 0)
+        self.tup = 0
+        self.tdir = 0
+        self.tright = 0
+
     def handle_movements(self) -> None:
         """
         Move the mare position with A, W, S, D or the arrows and the
@@ -265,13 +277,17 @@ class Renderer:
         if body.single_color:
             heapq.heappush(self.queue,
                            (distance, darken_color(body.color, light_intensity), points))
-            # self.draw_triangle(points[0], points[1], points[2], darken_color(body.color, light_intensity))
+            # self.draw_triangle(points[0], points[1], points[2],
+            #                    darken_color(body.color, light_intensity))
         else:
             heapq.heappush(self.queue,
                            (distance, darken_color(body.color[i], light_intensity), points))
-            # self.draw_triangle(points[0], points[1], points[2], darken_color(body.color[i], light_intensity))
+            # self.draw_triangle(points[0], points[1], points[2],
+            #                    darken_color(body.color[i], light_intensity))
 
         self.triangles += 1
+
+        return None
 
     def draw_triangle(
         self,
@@ -279,6 +295,18 @@ class Renderer:
         p2: tuple[float, float],
         p3: tuple[float, float],
         color: Color) -> None:
+        """
+        Draw a triangle using the pixel buffer.
+
+        :param p1: point 1
+        :type p1: tuple[float, float]
+        :param p2: point 2
+        :type p2: tuple[float, float]
+        :param p3: point 3
+        :type p3: tuple[float, float]
+        :param color: color of the triangle
+        :type color: Color
+        """
 
         p1x = int(p1[0])
         p1y = int(p1[1])
@@ -301,4 +329,3 @@ class Renderer:
                     self.buffer[x, y, 0] = color[0]
                     self.buffer[x, y, 1] = color[1]
                     self.buffer[x, y, 2] = color[2]
-

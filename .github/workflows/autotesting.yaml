@@ -26,3 +26,7 @@ jobs:
       - name: Check PEP8 style
         run:
           pylint py3dgame tests
+
+      - name: Run profiling
+        run:
+          python profiling/profile_rendering.py

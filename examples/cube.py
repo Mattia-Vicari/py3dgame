@@ -19,9 +19,9 @@ def main():
     )
 
     scene = p3g.Scene(p3g.color.BLACK, light=p3g.Vec3(0, 1, -1).normalize())
-    cube = p3g.Body.cube("cube", 10, color=color, pos=p3g.Vec3(0, 0, 0))
+    cube = p3g.Body.cube("cube", 1, color=color, pos=p3g.Vec3(0, 0, 0))
     scene.add_body(cube)
-    camera = p3g.Camera(p3g.Vec3(-50, 0, 15), p3g.Vec3(1, 0, -0.3))
+    camera = p3g.Camera(p3g.Vec3(-2.8, 0, 0.9), p3g.Vec3(1, 0, -0.3))
     renderer = p3g.Renderer(screen, camera, scene, clock)
     run = True
 

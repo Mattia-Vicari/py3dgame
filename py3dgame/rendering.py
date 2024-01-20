@@ -2,10 +2,11 @@
 Module for handling the rendering pipeline.
 """
 
+import math
 import heapq
 import pygame
-from .math3d import Vec3, Quat, Mat, rotate
-from .color import WHITE, darken_color
+from .math3d import Vec3, Quat, rotate
+from .color import WHITE, darken_color, Color
 from .scene import Scene, Body
 
 
@@ -22,22 +23,16 @@ class Camera:
     def __init__(
             self,
             pos: Vec3 = Vec3(0, 0, 0),
-            direction: Vec3 = Vec3(1, 0, 0),
-            max_distance: int = 1000) -> None:
+            direction: Vec3 = Vec3(1, 0, 0)) -> None:
 
         self.pos = pos
         self.dir = direction
         self.zoom = 1000
-        self.xs: Vec3 = (self.dir @ Vec3(0, 0, 1)).normalize()
-        self.ys: Vec3 = (self.dir @ self.xs).normalize()
         self.mouse_pos = None
-        self.top = Vec3(0, 0, 0)
-        self.right = Vec3(0, 0, 0)
-        self.bottom = Vec3(0, 0, 0)
-        self.left = Vec3(0, 0, 0)
-        self.k = self.dir * self.zoom * self.dir
-        self.plane_center = self.pos + self.dir * self.zoom
-        self.max_distance = max_distance
+
+        self.theta = math.pi / 2
+        self.zfar = 1000
+        self.znear = 0.1
 
     def handle_movements(self) -> None:
         """
@@ -49,10 +44,10 @@ class Camera:
         mouse_buttons = pygame.mouse.get_pressed()
 
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            self.pos = self.pos - self.xs
+            self.pos = self.pos - self.right
 
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            self.pos = self.pos + self.xs
+            self.pos = self.pos + self.right
 
         if keys[pygame.K_UP] or keys[pygame.K_w]:
             self.pos = self.pos + self.dir
@@ -64,73 +59,48 @@ class Camera:
             if self.mouse_pos is not None:
                 mouse_pos = pygame.mouse.get_pos()
                 mouse_pos = Vec3(mouse_pos[0], mouse_pos[1], 0)
-                angle = - (self.mouse_pos - mouse_pos).x / 1000
-                self.dir = rotate(self.dir, Quat(angle, self.ys))
-                self.xs = (self.dir @ Vec3(0, 0, 1)).normalize()
-                self.ys = (self.dir @ self.xs).normalize()
+                angle = (self.mouse_pos - mouse_pos).x / 1000
+                self.dir = rotate(self.dir, Quat(angle, self.up))
+                self.update_view_space()
 
                 angle = (self.mouse_pos - mouse_pos).y / 1000
-                self.dir = rotate(self.dir, Quat(angle, self.xs))
-                self.xs = (self.dir @ Vec3(0, 0, 1)).normalize()
-                self.ys = (self.dir @ self.xs).normalize()
-
-                self.k = self.dir * self.zoom * self.dir
+                self.dir = rotate(self.dir, Quat(angle, self.right))
+                self.update_view_space()
 
             mouse_pos = pygame.mouse.get_pos()
             self.mouse_pos = Vec3(mouse_pos[0], mouse_pos[1], 0)
         else:
             self.mouse_pos = None
 
-        self.plane_center = self.pos + self.dir * self.zoom
-
-    def update_fov(self, screen: pygame.Surface) -> None:
+    def update_projection_space(self, screen: pygame.Surface) -> None:
         """
-        Computes the vectors to check whether a point is inside the field of view.
+        Update parameters for the computing the screen space.
 
-        :param screen: pygame active window
+        :param screen: screen of the active window
         :type screen: pygame.Surface
         """
 
-        w = screen.get_width() / 2
-        h = screen.get_height() / 2
+        self.w = screen.get_width()
+        self.h = screen.get_height()
+        self.a = self.h / self.w
+        self.f = 1 / math.tan(self.theta / 2)
+        self.q = self.zfar / (self.zfar - self.znear)
+        self.af = self.a * self.f
 
-        top_left = Vec3(- w, - h, self.zoom)
-        top_right = Vec3(w, - h, self.zoom)
-        bottom_right = Vec3(w, h, self.zoom)
-        bottom_left = Vec3(- w, h, self.zoom)
-
-        mat = Mat(self.xs, self.ys, self.dir).inverse()
-
-        top_left = mat @ top_left
-        top_right = mat @ top_right
-        bottom_right = mat @ bottom_right
-        bottom_left = mat @ bottom_left
-
-        self.top = (top_left @ top_right).normalize()
-        self.right = (top_right @ bottom_right).normalize()
-        self.bottom = (bottom_right @ bottom_left).normalize()
-        self.left = (bottom_left @ top_left).normalize()
-
-    def inside_fov(self, *args: Vec3) -> bool:
+    def update_view_space(self) -> None:
         """
-        Check whether a face is inside the field of view.
-
-        :return: ``True`` if at least one vertex is inside the field of view,
-            ``False`` otherwise
-        :rtype: bool
+        Update parameters to compute the view space.
         """
 
-        for vertex in args:
-            cam_to_vertex = vertex - self.pos
+        up = Vec3(0, 0, 1)
+        self.up = (up - (self.dir * (up * self.dir))).normalize()
+        self.right = self.dir @ self.up
 
-            if (self.top * cam_to_vertex > 0 and
-                self.right * cam_to_vertex > 0 and
-                self.bottom * cam_to_vertex > 0 and
-                self.left * cam_to_vertex > 0):
+        target = self.pos + self.dir
 
-                return True
-
-        return False
+        self.tup = target * self.up
+        self.tdir = target * self.dir
+        self.tright = target * self.right
 
 
 class Renderer:
@@ -176,11 +146,15 @@ class Renderer:
 
         self.screen.fill(self.scene.bgc)
         self.triangles = 0
-        # TODO call this function only if the camera pos or dir changes
-        self.camera.update_fov(self.screen)
+        self.camera.update_projection_space(self.screen)
+        self.camera.update_view_space()
+        # self.buffer = pygame.surfarray.pixels3d(self.screen)
+        # self.depth = np.zeros((self.buffer.shape[0], self.buffer.shape[1]))
 
         for body in self.scene.bodies.values():
             self.render_body(body)
+
+        # del self.buffer
 
         while self.queue:
             _, color, points = heapq.heappop(self.queue)
@@ -206,11 +180,42 @@ class Renderer:
             cam_to_vertex = body.v[body.f[i][0]] - self.camera.pos
 
             if cam_to_vertex * normal > 0:
-                if self.camera.inside_fov(body.v[body.f[i][0]],
-                                          body.v[body.f[i][1]],
-                                          body.v[body.f[i][2]]):
-                    self.triangles += 1
-                    self.render_face(body, i)
+                self.render_face(body, i)
+
+    def project_point(self, point: Vec3) -> tuple[float, float, float]:
+        """
+        Project point from view space to screen space.
+
+        :param point: point in view space
+        :type point: Vec3
+        :return: point in screen space
+        :rtype: tuple[float, float, float]
+        """
+
+        x = self.camera.af * point.x
+        y = self.camera.f * point.y
+        z = self.camera.q * (point.z - self.camera.znear)
+
+        if point.z != 0:
+            return (x / point.z, y / point.z, z)
+
+        return (x, y, z)
+
+    def to_view_space(self, point: Vec3) -> Vec3:
+        """
+        Convert point from world coordinates to view space.
+
+        :param point: point in world coordinates
+        :type point: Vec3
+        :return: point in view space
+        :rtype: Vec3
+        """
+
+        x = point * self.camera.right - self.camera.tright
+        y = point * self.camera.up - self.camera.tup
+        z = point * self.camera.dir - self.camera.tdir
+
+        return Vec3(x, y, z)
 
     def render_face(self, body: Body, i: int) -> None:
         """
@@ -222,23 +227,37 @@ class Renderer:
         :type i: int
         """
 
-        cam_to_v1 = body.v[body.f[i][0]] - self.camera.pos
-        cam_to_v2 = body.v[body.f[i][1]] - self.camera.pos
-        cam_to_v3 = body.v[body.f[i][2]] - self.camera.pos
+        point1 = self.to_view_space(body.v[body.f[i][0]])
+        point2 = self.to_view_space(body.v[body.f[i][1]])
+        point3 = self.to_view_space(body.v[body.f[i][2]])
 
-        distance = - (abs(cam_to_v1) + abs(cam_to_v2) + abs(cam_to_v3)) / 3
+        point1 = self.project_point(point1)
+        point2 = self.project_point(point2)
+        point3 = self.project_point(point3)
 
-        if distance < - self.camera.max_distance:
+        if (point1[0] > 1 and point2[0] > 1 and point3[0] > 1):
             return None
 
-        proj1 = self.camera.pos + cam_to_v1 * (self.camera.k / (cam_to_v1 * self.camera.dir))
-        proj2 = self.camera.pos + cam_to_v2 * (self.camera.k / (cam_to_v2 * self.camera.dir))
-        proj3 = self.camera.pos + cam_to_v3 * (self.camera.k / (cam_to_v3 * self.camera.dir))
+        if (point1[0] < - 1 and point2[0] < - 1 and point3[0] < - 1):
+            return None
+
+        if (point1[1] > 1 and point2[1] > 1 and point3[1] > 1):
+            return None
+
+        if (point1[1] < - 1 and point2[1] < - 1 and point3[1] < - 1):
+            return None
+
+        distance = - (point1[2] + point2[2] + point3[2])
+
+        if (point1[2] < self.camera.znear and
+            point2[2] < self.camera.znear and
+            point3[2] < self.camera.znear):
+            return None
 
         points = (
-            self.world_to_screen(proj1),
-            self.world_to_screen(proj2),
-            self.world_to_screen(proj3),
+            ((point1[0] + 1) / 2 * self.camera.w, (- point1[1] + 1) / 2 * self.camera.h),
+            ((point2[0] + 1) / 2 * self.camera.w, (- point2[1] + 1) / 2 * self.camera.h),
+            ((point3[0] + 1) / 2 * self.camera.w, (- point3[1] + 1) / 2 * self.camera.h)
         )
 
         light_intensity = (body.n[i] * self.scene.light) / 2 + 0.5
@@ -246,23 +265,40 @@ class Renderer:
         if body.single_color:
             heapq.heappush(self.queue,
                            (distance, darken_color(body.color, light_intensity), points))
+            # self.draw_triangle(points[0], points[1], points[2], darken_color(body.color, light_intensity))
         else:
             heapq.heappush(self.queue,
                            (distance, darken_color(body.color[i], light_intensity), points))
+            # self.draw_triangle(points[0], points[1], points[2], darken_color(body.color[i], light_intensity))
 
-    def world_to_screen(self, point: Vec3) -> tuple[int, int]:
-        """
-        Convert the 3d point projected on the camera plane
-        in screen coordinates.
+        self.triangles += 1
 
-        :param point: 3d point to convert
-        :type point: Vec3
-        :return: new screen coordinates
-        :rtype: tuple[int, int]
-        """
+    def draw_triangle(
+        self,
+        p1: tuple[float, float],
+        p2: tuple[float, float],
+        p3: tuple[float, float],
+        color: Color) -> None:
 
-        point = point - self.camera.plane_center
-        x = self.camera.xs * point + self.screen.get_width() / 2
-        y = self.camera.ys * point + self.screen.get_height() / 2
+        p1x = int(p1[0])
+        p1y = int(p1[1])
+        p2x = int(p2[0])
+        p2y = int(p2[1])
+        p3x = int(p3[0])
+        p3y = int(p3[1])
+        first_row = max(min(p1y, p2y, p3y), 0)
+        last_row = min(max(p1y, p2y, p3y), self.camera.h)
+        first_col = max(min(p1x, p2x, p3x), 0)
+        last_col = min(max(p1x, p2x, p3x), self.camera.w)
 
-        return (x, y)
+        for y in range(first_row, last_row + 1):
+            for x in range(first_col, last_col + 1):
+                s1 = (x - p2x) * (p1y - p2y) - (p1x - p2x) * (y - p2y)
+                s2 = (x - p3x) * (p2y - p3y) - (p2x - p3x) * (y - p3y)
+                s3 = (x - p1x) * (p3y - p1y) - (p3x - p1x) * (y - p1y)
+
+                if (s1 >= 0) == (s2 >= 0) == (s3 >= 0):
+                    self.buffer[x, y, 0] = color[0]
+                    self.buffer[x, y, 1] = color[1]
+                    self.buffer[x, y, 2] = color[2]
+

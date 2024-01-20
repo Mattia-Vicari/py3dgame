@@ -10,19 +10,10 @@ def main():
     clock = pygame.time.Clock()
     fps = 60
 
-    color = (
-        p3g.color.RED,
-        p3g.color.GREEN,
-        p3g.color.BLUE,
-        p3g.color.PURPLE,
-        p3g.color.YELLOW,
-        p3g.color.CYAN
-    )
-
     scene = p3g.Scene(p3g.color.BLACK, light=p3g.Vec3(0, 1, 0).normalize())
     logo = p3g.Body.logo("logo", rot=p3g.Quat(0, p3g.Vec3(-1, -1, 1)))
     scene.add_body(logo)
-    camera = p3g.Camera(p3g.Vec3(0, -30, 0), p3g.Vec3(0, 1, 0))
+    camera = p3g.Camera(p3g.Vec3(0, -15, 0), p3g.Vec3(0, 1, 0))
     renderer = p3g.Renderer(screen, camera, scene, clock)
     run = True
 

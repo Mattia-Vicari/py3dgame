@@ -13,9 +13,9 @@ def render_sphere():
     clock = pygame.time.Clock()
 
     scene = p3g.Scene(p3g.color.BLACK, light=p3g.Vec3(0, - 1, - 1).normalize())
-    sphere = p3g.Body.sphere("sphere", 5, pos=p3g.Vec3(0, 0, 0), quality=5)
+    sphere = p3g.Body.sphere("sphere", 1, pos=p3g.Vec3(0, 0, 0), quality=5)
     scene.add_body(sphere)
-    camera = p3g.Camera(p3g.Vec3(-50, 0, 15), p3g.Vec3(1, 0, -0.3))
+    camera = p3g.Camera(p3g.Vec3(-3, 0, 0), p3g.Vec3(1, 0, 0))
     renderer = p3g.Renderer(screen, camera, scene, clock)
     cProfile.runctx("renderer.render()", None, locals(), sort=1)
 

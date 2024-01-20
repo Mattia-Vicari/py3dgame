@@ -229,7 +229,7 @@ class Renderer:
         distance = - (abs(cam_to_v1) + abs(cam_to_v2) + abs(cam_to_v3)) / 3
 
         if distance < - self.camera.max_distance:
-            return False
+            return None
 
         proj1 = self.camera.pos + cam_to_v1 * (self.camera.k / (cam_to_v1 * self.camera.dir))
         proj2 = self.camera.pos + cam_to_v2 * (self.camera.k / (cam_to_v2 * self.camera.dir))

@@ -118,7 +118,11 @@ class Body:
         """
         self.rotate(angle * math.pi / 180)
 
-    def relative_move(self, pos: Vec3 = None, rot: Quat = None, first_rotate: bool = True) -> None:
+    def relative_move(
+        self,
+        pos: Vec3 = Vec3(0, 0, 0),
+        rot: Quat = Quat(0, Vec3(0, 0, 1)),
+        first_rotate: bool = True) -> None:
         """
         Move the body relatively to its actual position.
 
@@ -136,7 +140,12 @@ class Body:
         self.compute_normals()
 
     @classmethod
-    def from_obj(cls, obj_file: str, name: str = None) -> 'Body':  # TODO
+    def from_obj(
+        cls,
+        obj_file: str,
+        name: str = None,
+        pos: Vec3 = Vec3(0, 0, 0),
+        rot: Quat = Quat(0, Vec3(0, 0, 1))) -> 'Body':
         """
         Generate a :class:`Body` from a .obj file.
 
@@ -146,14 +155,50 @@ class Body:
         :rtype: Body
         """
 
-        pos = Vec3(0, 0, 0)
-        rot = Quat(0, Vec3(0, 0, 1))
-
         if name is None:
             name = obj_file
 
-        vertices = ...
-        faces = ...
+        vertices = []
+        faces = []
+
+        with open(obj_file, "r") as file:
+            for line in file:
+                words = line.split(" ")
+
+                if words[0] == "v":
+                    vertices.append(Vec3(float(words[1]), float(words[2]), float(words[3])))
+
+                elif words[0] == "f":
+                    if len(words) == 4:
+                        if "/" in words[1]:
+                            v1 = words[1].split("/")
+                            v2 = words[2].split("/")
+                            v3 = words[3].split("/")
+                            faces.append((int(v1[0]) - 1, int(v2[0]) - 1, int(v3[0]) - 1))
+                        else:
+                            faces.append((int(words[1]) - 1, int(words[2]) - 1, int(words[3]) - 1))
+
+                    elif len(words) == 5:
+                        if "/" in words[1]:
+                            v1 = words[1].split("/")
+                            v2 = words[2].split("/")
+                            v3 = words[3].split("/")
+                            v4 = words[4].split("/")
+                            faces.append((int(v1[0]) - 1, int(v2[0]) - 1, int(v3[0]) - 1))
+                            faces.append((int(v1[0]) - 1, int(v3[0]) - 1, int(v4[0]) - 1))
+                        else:
+                            faces.append((int(words[1]) - 1, int(words[2]) - 1, int(words[3]) - 1))
+                            faces.append((int(words[1]) - 1, int(words[3]) - 1, int(words[4]) - 1))
+
+        degenerate_faces = []
+        for face in faces:
+            if (vertices[face[0]] == vertices[face[1]] or
+                vertices[face[0]] == vertices[face[2]] or
+                vertices[face[1]] == vertices[face[2]]):
+                degenerate_faces.append(face)
+
+        for face in degenerate_faces:
+            faces.remove(face)
 
         return cls(name, vertices, faces, pos, rot, WHITE)
 
@@ -176,8 +221,6 @@ class Body:
         :return: instance of the Body class
         :rtype: Body
         """
-
-        # TODO missing bottom face
 
         vertices = (
             # 0

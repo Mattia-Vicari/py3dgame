@@ -20,7 +20,7 @@ setup(
     keywords = "",
     package_dir = {"py3dgame": "py3dgame"},
     python_requires = ">= 3.10",
-    install_requires = ["pygame"],
+    install_requires = ["numpy", "pygame"],
     project_urls = {
         "Bug Reports": "https://github.com/Mattia-Vicari/py3dgame/issues",
     }

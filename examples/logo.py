@@ -27,7 +27,7 @@ def main():
             if event.type == pygame.QUIT:
                 run = False
 
-        camera.handle_movements()
+        camera.handle_movements(clock.get_fps())
 
         if t < 120:
             logo.rotate_deg(1)

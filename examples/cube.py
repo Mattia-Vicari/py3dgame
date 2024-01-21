@@ -32,7 +32,7 @@ def main():
             if event.type == pygame.QUIT:
                 run = False
 
-        camera.handle_movements()
+        camera.handle_movements(clock.get_fps())
         cube.rotate_deg(1)
         renderer.render()
 

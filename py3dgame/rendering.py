@@ -3,8 +3,10 @@ Module for handling the rendering pipeline.
 """
 
 import math
-import heapq
+import ctypes
+import platform
 import pygame
+import numpy as np
 from .math3d import Vec3, Quat, rotate
 from .color import WHITE, darken_color, Color
 from .scene import Scene, Body
@@ -46,7 +48,7 @@ class Camera:
         self.tdir = 0
         self.tright = 0
 
-    def handle_movements(self) -> None:
+    def handle_movements(self, fps: float) -> None:
         """
         Move the mare position with A, W, S, D or the arrows and the
         change the rotation using the mouse.
@@ -56,16 +58,16 @@ class Camera:
         mouse_buttons = pygame.mouse.get_pressed()
 
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            self.pos = self.pos - self.right
+            self.pos = self.pos - self.right / fps
 
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            self.pos = self.pos + self.right
+            self.pos = self.pos + self.right / fps
 
         if keys[pygame.K_UP] or keys[pygame.K_w]:
-            self.pos = self.pos + self.dir
+            self.pos = self.pos + self.dir / fps
 
         if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            self.pos = self.pos - self.dir
+            self.pos = self.pos - self.dir / fps
 
         if mouse_buttons[1]:
             if self.mouse_pos is not None:
@@ -145,9 +147,43 @@ class Renderer:
         self.screen = screen
         self.camera = camera
         self.scene = scene
+        self.screen.fill(self.scene.bgc)
         self.clock = clock
         self.queue = []
         self.triangles = 0
+        self.computed = dict()
+        self.buffer = pygame.surfarray.array3d(self.screen)
+        self.depth = np.ones((self.buffer.shape[0],
+                              self.buffer.shape[1]),
+                              dtype=np.float32) * self.camera.zfar
+        self.buffer.flags.writeable = True
+        self.depth.flags.writeable = True
+        self.buffer_ptr = self.buffer.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8))
+        self.depth_ptr = self.depth.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+
+        if platform.system() == "Windows":
+            self.lib = ctypes.CDLL("lib/rendering.dll")
+
+        self.lib.draw_triangle.argtypes = [
+            ctypes.POINTER(ctypes.c_uint8),
+            ctypes.c_int, ctypes.c_int, ctypes.c_int,
+            ctypes.POINTER(ctypes.c_float),
+            ctypes.c_int, ctypes.c_int,
+            ctypes.c_float, ctypes.c_float, ctypes.c_float,
+            ctypes.c_float, ctypes.c_float, ctypes.c_float,
+            ctypes.c_float, ctypes.c_float, ctypes.c_float,
+            ctypes.c_uint8, ctypes.c_uint8, ctypes.c_uint8,
+            ctypes.c_int, ctypes.c_int
+        ]
+        self.lib.draw_triangle.restype = None
+
+        self.lib.fill_bg.argtypes = [
+            ctypes.POINTER(ctypes.c_uint8),
+            ctypes.c_int, ctypes.c_int, ctypes.c_int,
+            ctypes.c_uint8, ctypes.c_uint8, ctypes.c_uint8,
+            ctypes.c_int, ctypes.c_int
+        ]
+        self.lib.fill_bg.restype = None
 
         pygame.display.set_caption(caption)
 
@@ -156,21 +192,24 @@ class Renderer:
         Render all the object in scene.
         """
 
-        self.screen.fill(self.scene.bgc)
         self.triangles = 0
         self.camera.update_projection_space(self.screen)
         self.camera.update_view_space()
-        # self.buffer = pygame.surfarray.pixels3d(self.screen)
-        # self.depth = np.zeros((self.buffer.shape[0], self.buffer.shape[1]))
+        self.computed = dict()
+        self.lib.fill_bg(
+            self.buffer_ptr,
+            self.buffer.strides[0], self.buffer.strides[1], self.buffer.strides[2],
+            ctypes.c_uint8(self.scene.bgc[0]),
+            ctypes.c_uint8(self.scene.bgc[1]),
+            ctypes.c_uint8(self.scene.bgc[2]),
+            ctypes.c_int(self.camera.w), ctypes.c_int(self.camera.h)
+        )
+        self.depth.fill(self.camera.zfar)
 
         for body in self.scene.bodies.values():
             self.render_body(body)
 
-        # del self.buffer
-
-        while self.queue:
-            _, color, points = heapq.heappop(self.queue)
-            pygame.draw.polygon(self.screen, color, points)
+        self.screen.blit(pygame.surfarray.make_surface(self.buffer), (0, 0))
 
         fps = self.clock.get_fps()
         fps_text = self.font.render(f"FPS: {fps:.2f}", True, WHITE)
@@ -179,6 +218,7 @@ class Renderer:
         self.screen.blit(tri_text, (10, 30))
 
         pygame.display.flip()
+
 
     def render_body(self, body: Body):
         """
@@ -239,61 +279,95 @@ class Renderer:
         :type i: int
         """
 
-        point1 = self.to_view_space(body.v[body.f[i][0]])
-        point2 = self.to_view_space(body.v[body.f[i][1]])
-        point3 = self.to_view_space(body.v[body.f[i][2]])
+        if body.f[i][0] in self.computed:
+            point1 = self.computed[body.f[i][0]]
+        else:
+            point1 = self.to_view_space(body.v[body.f[i][0]])
+            point1 = self.project_point(point1)
+            point1 = (
+                (point1[0] + 1) / 2 * self.camera.w,
+                (- point1[1] + 1) / 2 * self.camera.h,
+                point1[2]
+            )
+            self.computed[body.f[i][0]] = point1
 
-        point1 = self.project_point(point1)
-        point2 = self.project_point(point2)
-        point3 = self.project_point(point3)
+        if body.f[i][1] in self.computed:
+            point2 = self.computed[body.f[i][1]]
+        else:
+            point2 = self.to_view_space(body.v[body.f[i][1]])
+            point2 = self.project_point(point2)
+            point2 = (
+                (point2[0] + 1) / 2 * self.camera.w,
+                (- point2[1] + 1) / 2 * self.camera.h,
+                point2[2]
+            )
+            self.computed[body.f[i][1]] = point2
 
-        if (point1[0] > 1 and point2[0] > 1 and point3[0] > 1):
-            return None
+        if body.f[i][2] in self.computed:
+            point3 = self.computed[body.f[i][2]]
+        else:
+            point3 = self.to_view_space(body.v[body.f[i][2]])
+            point3 = self.project_point(point3)
+            point3 = (
+                (point3[0] + 1) / 2 * self.camera.w,
+                (- point3[1] + 1) / 2 * self.camera.h,
+                point3[2]
+            )
+            self.computed[body.f[i][2]] = point3
 
-        if (point1[0] < - 1 and point2[0] < - 1 and point3[0] < - 1):
-            return None
+        if (point1[0] > self.camera.w and
+            point2[0] > self.camera.w and
+            point3[0] > self.camera.w):
+            return
 
-        if (point1[1] > 1 and point2[1] > 1 and point3[1] > 1):
-            return None
+        if (point1[0] < 0 and
+            point2[0] < 0 and
+            point3[0] < 0):
+            return
 
-        if (point1[1] < - 1 and point2[1] < - 1 and point3[1] < - 1):
-            return None
+        if (point1[1] > self.camera.h and
+            point2[1] > self.camera.h and
+            point3[1] > self.camera.h):
+            return
 
-        distance = - (point1[2] + point2[2] + point3[2])
+        if (point1[1] < 0 and
+            point2[1] < 0 and
+            point3[1] < 0):
+            return
 
-        if (point1[2] < self.camera.znear and
-            point2[2] < self.camera.znear and
+        if (point1[2] < self.camera.znear or
+            point2[2] < self.camera.znear or
             point3[2] < self.camera.znear):
-            return None
+            return
+
+        if (point1[2] > self.camera.zfar or
+            point2[2] > self.camera.zfar or
+            point3[2] > self.camera.zfar):
+            return
+
 
         points = (
-            ((point1[0] + 1) / 2 * self.camera.w, (- point1[1] + 1) / 2 * self.camera.h),
-            ((point2[0] + 1) / 2 * self.camera.w, (- point2[1] + 1) / 2 * self.camera.h),
-            ((point3[0] + 1) / 2 * self.camera.w, (- point3[1] + 1) / 2 * self.camera.h)
+            point1,
+            point2,
+            point3
         )
 
         light_intensity = (body.n[i] * self.scene.light) / 2 + 0.5
 
         if body.single_color:
-            heapq.heappush(self.queue,
-                           (distance, darken_color(body.color, light_intensity), points))
-            # self.draw_triangle(points[0], points[1], points[2],
-            #                    darken_color(body.color, light_intensity))
+            self.draw_triangle(points[0], points[1], points[2],
+                               darken_color(body.color, light_intensity))
         else:
-            heapq.heappush(self.queue,
-                           (distance, darken_color(body.color[i], light_intensity), points))
-            # self.draw_triangle(points[0], points[1], points[2],
-            #                    darken_color(body.color[i], light_intensity))
+            self.draw_triangle(points[0], points[1], points[2],
+                               darken_color(body.color[i], light_intensity))
 
         self.triangles += 1
 
-        return None
-
     def draw_triangle(
         self,
-        p1: tuple[float, float],
-        p2: tuple[float, float],
-        p3: tuple[float, float],
+        p1: tuple[int, int, float],
+        p2: tuple[int, int, float],
+        p3: tuple[int, int, float],
         color: Color) -> None:
         """
         Draw a triangle using the pixel buffer.
@@ -308,24 +382,14 @@ class Renderer:
         :type color: Color
         """
 
-        p1x = int(p1[0])
-        p1y = int(p1[1])
-        p2x = int(p2[0])
-        p2y = int(p2[1])
-        p3x = int(p3[0])
-        p3y = int(p3[1])
-        first_row = max(min(p1y, p2y, p3y), 0)
-        last_row = min(max(p1y, p2y, p3y), self.camera.h)
-        first_col = max(min(p1x, p2x, p3x), 0)
-        last_col = min(max(p1x, p2x, p3x), self.camera.w)
-
-        for y in range(first_row, last_row + 1):
-            for x in range(first_col, last_col + 1):
-                s1 = (x - p2x) * (p1y - p2y) - (p1x - p2x) * (y - p2y)
-                s2 = (x - p3x) * (p2y - p3y) - (p2x - p3x) * (y - p3y)
-                s3 = (x - p1x) * (p3y - p1y) - (p3x - p1x) * (y - p1y)
-
-                if (s1 >= 0) == (s2 >= 0) == (s3 >= 0):
-                    self.buffer[x, y, 0] = color[0]
-                    self.buffer[x, y, 1] = color[1]
-                    self.buffer[x, y, 2] = color[2]
+        self.lib.draw_triangle(
+            self.buffer_ptr,
+            self.buffer.strides[0], self.buffer.strides[1], self.buffer.strides[2],
+            self.depth_ptr,
+            self.depth.strides[0], self.depth.strides[1],
+            p1[0], p1[1], p1[2],
+            p2[0], p2[1], p2[2],
+            p3[0], p3[1], p3[2],
+            color[0], color[1], color[2],
+            self.camera.w, self.camera.h
+        )

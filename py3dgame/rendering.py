@@ -3,10 +3,10 @@ Module for handling the rendering pipeline.
 """
 
 import math
-import ctypes
-import platform
+from collections import defaultdict
 import pygame
 import numpy as np
+from ext_rendering import draw_triangle, fill_bg
 from .math3d import Vec3, Quat, rotate
 from .color import WHITE, darken_color, Color
 from .scene import Scene, Body
@@ -22,6 +22,11 @@ class Camera:
     :type direction: Vec3, optional
     """
 
+    __slots__ = ["pos", "dir", "mouse_pos",
+                 "theta", "zfar", "znear",
+                 "w", "h", "a", "f", "q", "af",
+                 "up", "right", "tup", "tright", "tdir"]
+
     def __init__(
             self,
             pos: Vec3 = Vec3(0, 0, 0),
@@ -29,7 +34,6 @@ class Camera:
 
         self.pos = pos
         self.dir = direction
-        self.zoom = 1000
         self.mouse_pos = None
 
         self.theta = math.pi / 2
@@ -42,6 +46,7 @@ class Camera:
         self.f = 0
         self.q = 0
         self.af = 0
+
         self.up = Vec3(0, 0, 0)
         self.right = Vec3(0, 0, 0)
         self.tup = 0
@@ -133,6 +138,9 @@ class Renderer:
     :type caption: str, optional
     """
 
+    __slots__ = ["screen", "camera", "scene", "clock", "triangles", "computed",
+                 "lib", "buffer", "depth", "buffer_ptr", "depth_ptr"]
+
     pygame.init()
     font = pygame.font.SysFont('arial', 18, True)
 
@@ -149,43 +157,22 @@ class Renderer:
         self.scene = scene
         self.screen.fill(self.scene.bgc)
         self.clock = clock
-        self.queue = []
         self.triangles = 0
-        self.computed = dict()
+        self.computed = defaultdict(self._default_value)
         self.buffer = pygame.surfarray.array3d(self.screen)
         self.depth = np.ones((self.buffer.shape[0],
                               self.buffer.shape[1]),
                               dtype=np.float32) * self.camera.zfar
         self.buffer.flags.writeable = True
         self.depth.flags.writeable = True
-        self.buffer_ptr = self.buffer.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8))
-        self.depth_ptr = self.depth.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
-
-        if platform.system() == "Windows":
-            self.lib = ctypes.CDLL("lib/rendering.dll")
-
-        self.lib.draw_triangle.argtypes = [
-            ctypes.POINTER(ctypes.c_uint8),
-            ctypes.c_int, ctypes.c_int, ctypes.c_int,
-            ctypes.POINTER(ctypes.c_float),
-            ctypes.c_int, ctypes.c_int,
-            ctypes.c_float, ctypes.c_float, ctypes.c_float,
-            ctypes.c_float, ctypes.c_float, ctypes.c_float,
-            ctypes.c_float, ctypes.c_float, ctypes.c_float,
-            ctypes.c_uint8, ctypes.c_uint8, ctypes.c_uint8,
-            ctypes.c_int, ctypes.c_int
-        ]
-        self.lib.draw_triangle.restype = None
-
-        self.lib.fill_bg.argtypes = [
-            ctypes.POINTER(ctypes.c_uint8),
-            ctypes.c_int, ctypes.c_int, ctypes.c_int,
-            ctypes.c_uint8, ctypes.c_uint8, ctypes.c_uint8,
-            ctypes.c_int, ctypes.c_int
-        ]
-        self.lib.fill_bg.restype = None
+        self.buffer_ptr = self.buffer.__array_interface__['data'][0]
+        self.depth_ptr = self.depth.__array_interface__['data'][0]
 
         pygame.display.set_caption(caption)
+
+    @staticmethod
+    def _default_value() -> None:
+        return None
 
     def render(self) -> None:
         """
@@ -195,14 +182,11 @@ class Renderer:
         self.triangles = 0
         self.camera.update_projection_space(self.screen)
         self.camera.update_view_space()
-        self.computed = dict()
-        self.lib.fill_bg(
+        self.computed = defaultdict(self._default_value)
+        fill_bg(
             self.buffer_ptr,
-            self.buffer.strides[0], self.buffer.strides[1], self.buffer.strides[2],
-            ctypes.c_uint8(self.scene.bgc[0]),
-            ctypes.c_uint8(self.scene.bgc[1]),
-            ctypes.c_uint8(self.scene.bgc[2]),
-            ctypes.c_int(self.camera.w), ctypes.c_int(self.camera.h)
+            *self.buffer.strides,
+            *self.scene.bgc, self.camera.w, self.camera.h
         )
         self.depth.fill(self.camera.zfar)
 
@@ -229,29 +213,17 @@ class Renderer:
         """
 
         for i, normal in enumerate(body.n):
-            cam_to_vertex = body.v[body.f[i][0]] - self.camera.pos
+            face = body.f[i]
+            cam_to_vertex = body.v[face[0]] - self.camera.pos
 
             if cam_to_vertex * normal > 0:
-                self.render_face(body, i)
 
-    def project_point(self, point: Vec3) -> tuple[float, float, float]:
-        """
-        Project point from view space to screen space.
+                if body.single_color:
+                    color = body.color
+                else:
+                    color = body.color[i]
 
-        :param point: point in view space
-        :type point: Vec3
-        :return: point in screen space
-        :rtype: tuple[float, float, float]
-        """
-
-        x = self.camera.af * point.x
-        y = self.camera.f * point.y
-        z = self.camera.q * (point.z - self.camera.znear)
-
-        if point.z != 0:
-            return (x / point.z, y / point.z, z)
-
-        return (x, y, z)
+                self.render_face(body, face, normal, color)
 
     def to_view_space(self, point: Vec3) -> Vec3:
         """
@@ -269,51 +241,61 @@ class Renderer:
 
         return Vec3(x, y, z)
 
-    def render_face(self, body: Body, i: int) -> None:
+    def project_point(self, point: Vec3) -> tuple[float, float, float]:
+        """
+        Project point from view space to screen space.
+
+        :param point: point in view space
+        :type point: Vec3
+        :return: point in screen space
+        :rtype: tuple[float, float, float]
+        """
+
+        x = self.camera.af * point.x
+        y = self.camera.f * point.y
+        z = self.camera.q * (point.z - self.camera.znear)
+
+        if point.z != 0:
+            x = x / point.z
+            y = y / point.z
+
+        x = (x + 1) / 2 * self.camera.w
+        y = (- y + 1) / 2 * self.camera.h
+
+        return (x, y, z)
+
+    def render_face(self,
+        body: Body,
+        face: tuple[int, int, int],
+        normal: Vec3,
+        color: Color) -> None:
         """
         Render a specific face.
 
         :param body: body that contain the face
         :type body: Body
-        :param i: index of the face
-        :type i: int
+        :param face: face to render
+        :type face: tuple[int, int, int]
+        :param normal: normal of the face
+        :type normal: Vec3
+        :param color: RGB color of the face
+        :type color: Color
         """
 
-        if body.f[i][0] in self.computed:
-            point1 = self.computed[body.f[i][0]]
-        else:
-            point1 = self.to_view_space(body.v[body.f[i][0]])
+        if (point1 := self.computed[face[0]]) is None:
+            point1 = self.to_view_space(body.v[face[0]])
             point1 = self.project_point(point1)
-            point1 = (
-                (point1[0] + 1) / 2 * self.camera.w,
-                (- point1[1] + 1) / 2 * self.camera.h,
-                point1[2]
-            )
-            self.computed[body.f[i][0]] = point1
+            self.computed[face[0]] = point1
 
-        if body.f[i][1] in self.computed:
-            point2 = self.computed[body.f[i][1]]
-        else:
-            point2 = self.to_view_space(body.v[body.f[i][1]])
+        if (point2 := self.computed[face[1]]) is None:
+            point2 = self.to_view_space(body.v[face[1]])
             point2 = self.project_point(point2)
-            point2 = (
-                (point2[0] + 1) / 2 * self.camera.w,
-                (- point2[1] + 1) / 2 * self.camera.h,
-                point2[2]
-            )
-            self.computed[body.f[i][1]] = point2
+            self.computed[face[1]] = point2
 
-        if body.f[i][2] in self.computed:
-            point3 = self.computed[body.f[i][2]]
-        else:
-            point3 = self.to_view_space(body.v[body.f[i][2]])
+        if (point3 := self.computed[face[2]]) is None:
+            point3 = self.to_view_space(body.v[face[2]])
             point3 = self.project_point(point3)
-            point3 = (
-                (point3[0] + 1) / 2 * self.camera.w,
-                (- point3[1] + 1) / 2 * self.camera.h,
-                point3[2]
-            )
-            self.computed[body.f[i][2]] = point3
+            self.computed[face[2]] = point3
 
         if (point1[0] > self.camera.w and
             point2[0] > self.camera.w and
@@ -345,51 +327,37 @@ class Renderer:
             point3[2] > self.camera.zfar):
             return
 
+        light_intensity = (normal * self.scene.light) / 2 + 0.5
 
-        points = (
-            point1,
-            point2,
-            point3
-        )
-
-        light_intensity = (body.n[i] * self.scene.light) / 2 + 0.5
-
-        if body.single_color:
-            self.draw_triangle(points[0], points[1], points[2],
-                               darken_color(body.color, light_intensity))
-        else:
-            self.draw_triangle(points[0], points[1], points[2],
-                               darken_color(body.color[i], light_intensity))
+        self.draw_triangle(point1, point2, point3,
+                           darken_color(color, light_intensity))
 
         self.triangles += 1
 
     def draw_triangle(
         self,
-        p1: tuple[int, int, float],
-        p2: tuple[int, int, float],
-        p3: tuple[int, int, float],
+        p1: tuple[float, float, float],
+        p2: tuple[float, float, float],
+        p3: tuple[float, float, float],
         color: Color) -> None:
         """
         Draw a triangle using the pixel buffer.
 
         :param p1: point 1
-        :type p1: tuple[float, float]
+        :type p1: tuple[float, float, float]
         :param p2: point 2
-        :type p2: tuple[float, float]
+        :type p2: tuple[float, float, float]
         :param p3: point 3
-        :type p3: tuple[float, float]
+        :type p3: tuple[float, float, float]
         :param color: color of the triangle
         :type color: Color
         """
 
-        self.lib.draw_triangle(
+        draw_triangle(
             self.buffer_ptr,
-            self.buffer.strides[0], self.buffer.strides[1], self.buffer.strides[2],
+            *self.buffer.strides,
             self.depth_ptr,
-            self.depth.strides[0], self.depth.strides[1],
-            p1[0], p1[1], p1[2],
-            p2[0], p2[1], p2[2],
-            p3[0], p3[1], p3[2],
-            color[0], color[1], color[2],
+            *self.depth.strides,
+            *p1, *p2, *p3, *color,
             self.camera.w, self.camera.h
         )

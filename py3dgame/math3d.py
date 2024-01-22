@@ -19,6 +19,8 @@ class Vec3:
     :type z: float
     """
 
+    __slots__ = ["x", "y", "z"]
+
     def __init__(self, x: float, y: float, z: float) -> None:
         self.x = x
         self.y = y
@@ -91,6 +93,8 @@ class Quat:
     :param axis: vector that represent the axis of the rotation
     :type axis: Vec3
     """
+
+    __slots__ = ["angle", "axis", "w", "x", "y", "z"]
 
     def __init__(self, angle: float, axis: Vec3 = Vec3(0, 0, 1)) -> None:
         self.axis = axis.normalize()
@@ -224,6 +228,8 @@ class Mat:
     :param r3: third row of the matrix
     :type r3: Vec3
     """
+
+    __slots__ = ["r1", "r2", "r3"]
 
     def __init__(self, r1: Vec3, r2: Vec3, r3: Vec3) -> None:
         self.r1 = r1

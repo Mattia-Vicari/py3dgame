@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages, Extension
 import pathlib
 
 here = pathlib.Path(__file__).parent.resolve()
@@ -19,6 +19,8 @@ setup(
     ],
     keywords = "",
     package_dir = {"py3dgame": "py3dgame"},
+    packages = find_packages(),
+    ext_modules = [Extension("ext_rendering", ["lib/ext_rendering.c"])],
     python_requires = ">= 3.10",
     install_requires = ["numpy", "pygame"],
     project_urls = {

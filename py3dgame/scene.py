@@ -27,6 +27,8 @@ class Body:
     :type color: Color, tuple[Color], optional
     """
 
+    __slots__ = ["name", "vertices", "f", "pos", "rot", "color", "n", "v", "single_color"]
+
     def __init__(
         self,
         name: str,

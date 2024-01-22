@@ -1,6 +1,8 @@
 #include <stdint.h>
-#include <stdlib.h>
 #include <Python.h>
+
+#define min(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define max(X, Y) (((X) > (Y)) ? (X) : (Y))
 
 static void draw_triangle(uint8_t* buffer,
                           int bs_x, int bs_y, int bs_c,

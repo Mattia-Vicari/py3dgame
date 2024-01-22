@@ -361,3 +361,18 @@ class Renderer:
             *p1, *p2, *p3, *color,
             self.camera.w, self.camera.h
         )
+
+    def resize(self) -> None:
+        """
+        Regenerate screen and depth buffer when resizing the window.
+        Should always be used after when the event ``pygame.VIDEORESIZE`` occurs.
+        """
+
+        self.buffer = pygame.surfarray.array3d(self.screen)
+        self.depth = np.ones((self.buffer.shape[0],
+                              self.buffer.shape[1]),
+                              dtype=np.float32) * self.camera.zfar
+        self.buffer.flags.writeable = True
+        self.depth.flags.writeable = True
+        self.buffer_ptr = self.buffer.__array_interface__['data'][0]
+        self.depth_ptr = self.depth.__array_interface__['data'][0]

@@ -5,7 +5,7 @@ width, height = 1080, 720
 
 def main():
     pygame.init()
-    screen = pygame.display.set_mode((width, height))
+    screen = pygame.display.set_mode((width, height), pygame.RESIZABLE)
     clock = pygame.time.Clock()
     fps = 60
 
@@ -31,6 +31,9 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
+
+            elif event.type == pygame.VIDEORESIZE:
+                renderer.resize()
 
         camera.handle_movements(clock.get_fps())
         cube.rotate_deg(1)

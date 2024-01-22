@@ -7,7 +7,7 @@ def main():
     pygame.init()
     screen = pygame.display.set_mode((width, height))
     clock = pygame.time.Clock()
-    fps = 60
+    fps = 1000
 
     scene = p3g.Scene(p3g.color.BLACK, light=p3g.Vec3(0, 1, 0).normalize())
     coin = p3g.Body.from_obj("assets/coin.obj", "coin")
@@ -23,7 +23,7 @@ def main():
             if event.type == pygame.QUIT:
                 run = False
 
-        camera.handle_movements()
+        camera.handle_movements(clock.get_fps())
         coin.rotate_deg(1)
         renderer.render()
 

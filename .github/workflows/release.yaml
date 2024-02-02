@@ -17,6 +17,7 @@ jobs:
       # retrieve your distributions here
       - name: Package dist
         run:
+          pip install build
           python -m build --sdist
 
       - name: Publish package distributions to PyPI

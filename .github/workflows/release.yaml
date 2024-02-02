@@ -14,13 +14,16 @@ jobs:
       # IMPORTANT: this permission is mandatory for trusted publishing
       id-token: write
     steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       - name: Install dependencies
         run:
           pip install build
       # retrieve your distributions here
       - name: Package dist
         run:
-          cd .. &&
           python -m build --sdist
 
       - name: Publish package distributions to PyPI

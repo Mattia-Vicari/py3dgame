@@ -1,4 +1,4 @@
-[![Release](https://github.com/Mattia-Vicari/py3dgame/actions/workflows/release.yaml/badge.svg)](https://github.com/Mattia-Vicari/py3dgame/actions/workflows/release.yaml) [![Auto Testing](https://github.com/Mattia-Vicari/py3dgame/actions/workflows/autotesting.yaml/badge.svg)](https://github.com/Mattia-Vicari/py3dgame/actions/workflows/autotesting.yaml)
+[![Release](https://github.com/Mattia-Vicari/py3dgame/actions/workflows/release.yaml/badge.svg)](https://github.com/Mattia-Vicari/py3dgame/actions/workflows/release.yaml) [![Auto Testing](https://github.com/Mattia-Vicari/py3dgame/actions/workflows/autotesting.yaml/badge.svg)](https://github.com/Mattia-Vicari/py3dgame/actions/workflows/autotesting.yaml) [![Documentation Status](https://readthedocs.org/projects/py3dgame/badge/?version=latest)](https://py3dgame.readthedocs.io/en/latest/?badge=latest)
 <div align="center">
 
 <img src="assets/logo.gif" width="100" alt="rotating Py3dGame logo">

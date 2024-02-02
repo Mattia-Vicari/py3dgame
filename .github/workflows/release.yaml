@@ -14,10 +14,12 @@ jobs:
       # IMPORTANT: this permission is mandatory for trusted publishing
       id-token: write
     steps:
+      - name: Install dependencies
+        run:
+          pip install build
       # retrieve your distributions here
       - name: Package dist
         run:
-          pip install build
           python -m build --sdist
 
       - name: Publish package distributions to PyPI

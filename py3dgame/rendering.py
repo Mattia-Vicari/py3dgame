@@ -297,70 +297,53 @@ class Renderer:
             point3 = self.project_point(point3)
             self.computed[face[2]] = point3
 
-        if (point1[0] > self.camera.w and
-            point2[0] > self.camera.w and
-            point3[0] > self.camera.w):
+        p1x, p1y, p1z = point1
+        p2x, p2y, p2z = point2
+        p3x, p3y, p3z = point3
+
+        if (p1x > self.camera.w and
+            p2x > self.camera.w and
+            p3x > self.camera.w):
             return
 
-        if (point1[0] < 0 and
-            point2[0] < 0 and
-            point3[0] < 0):
+        if (p1x < 0 and
+            p2x < 0 and
+            p3x < 0):
             return
 
-        if (point1[1] > self.camera.h and
-            point2[1] > self.camera.h and
-            point3[1] > self.camera.h):
+        if (p1y > self.camera.h and
+            p2y > self.camera.h and
+            p3y > self.camera.h):
             return
 
-        if (point1[1] < 0 and
-            point2[1] < 0 and
-            point3[1] < 0):
+        if (p1y < 0 and
+            p2y < 0 and
+            p3y < 0):
             return
 
-        if (point1[2] < self.camera.znear or
-            point2[2] < self.camera.znear or
-            point3[2] < self.camera.znear):
+        if (p1z < self.camera.znear or
+            p2z < self.camera.znear or
+            p3z < self.camera.znear):
             return
 
-        if (point1[2] > self.camera.zfar or
-            point2[2] > self.camera.zfar or
-            point3[2] > self.camera.zfar):
+        if (p1z > self.camera.zfar or
+            p2z > self.camera.zfar or
+            p3z > self.camera.zfar):
             return
 
         light_intensity = (normal * self.scene.light) / 2 + 0.5
 
-        self.draw_triangle(point1, point2, point3,
-                           darken_color(color, light_intensity))
-
-        self.triangles += 1
-
-    def draw_triangle(
-        self,
-        p1: tuple[float, float, float],
-        p2: tuple[float, float, float],
-        p3: tuple[float, float, float],
-        color: Color) -> None:
-        """
-        Draw a triangle using the pixel buffer.
-
-        :param p1: point 1
-        :type p1: tuple[float, float, float]
-        :param p2: point 2
-        :type p2: tuple[float, float, float]
-        :param p3: point 3
-        :type p3: tuple[float, float, float]
-        :param color: color of the triangle
-        :type color: Color
-        """
-
         draw_triangle(
-            self.buffer_ptr,
-            *self.buffer.strides,
-            self.depth_ptr,
-            *self.depth.strides,
-            *p1, *p2, *p3, *color,
+            self.buffer_ptr, *self.buffer.strides,
+            self.depth_ptr, *self.depth.strides,
+            p1x, p1y, p1z,
+            p2x, p2y, p2z,
+            p3x, p3y, p3z,
+            *darken_color(color, light_intensity),
             self.camera.w, self.camera.h
         )
+
+        self.triangles += 1
 
     def resize(self) -> None:
         """

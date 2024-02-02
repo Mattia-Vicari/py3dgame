@@ -11,7 +11,7 @@ Welcome to py3dgame's documentation!
    :end-line: -1
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Contents:
 
    py3dgame.rst

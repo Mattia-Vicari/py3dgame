@@ -167,8 +167,8 @@ class Quat:
     def inverse(self) -> 'Quat':
         """
         Compute the inverse of a :class:`Quat`.
-        The inverse of q = (w, x, y, z) is computed as
-        q^(- 1) = (w, - x, - y, - z) / (|q|)^2
+        The inverse of ``q = (w, x, y, z)`` is computed as
+        ``q^(- 1) = (w, - x, - y, - z) / (|q|)^2``
 
         :return: inverse quaternion
         :rtype: Quat

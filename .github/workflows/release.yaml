@@ -17,12 +17,10 @@ jobs:
       - name: Install dependencies
         run:
           pip install build
-      - name: Set directory
-        run:
-          cd ..
       # retrieve your distributions here
       - name: Package dist
         run:
+          cd .. &&
           python -m build --sdist
 
       - name: Publish package distributions to PyPI

@@ -25,6 +25,7 @@ jobs:
       - name: Package dist
         run:
           python -m build --sdist
+        working-directory: py3dgame
 
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
